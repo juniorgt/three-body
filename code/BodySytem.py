@@ -14,7 +14,7 @@ DEFAULT_ODE_SOLVER = "RK4"
 
 ODESolvers = {
     "RK4": runge_kutta_4th_order,
-    "RK5": runge_kutta_5th_order,
+    "RKF": runge_kutta_fehlberg,
     "Euler": euler,
     "Verlet": verlet,
     "Leapfrog": leapfrog,
@@ -102,11 +102,11 @@ class BodySystem:
             "h": self.h,
         }
         json_init_setup = json.dumps(init_setup, indent=4)
-        with open(
-            os.path.join(self.save_route_images, f"{self.name}_{self.ODESolver}.json"),
-            "w",
-        ) as json_file:
-            json_file.write(json_init_setup)
+        # with open(
+        #     os.path.join(self.save_route_images, f"{self.name}_{self.ODESolver}.json"),
+        #     "w",
+        # ) as json_file:
+        #     json_file.write(json_init_setup)
 
         with open(
             os.path.join(self.save_route_data, f"{self.name}_{self.ODESolver}.json"),
@@ -153,7 +153,7 @@ class BodySystem:
 
     def _save_runnig_time(self):
         save_path = os.path.join(
-            self.save_route_images, f"{self.name}_{self.ODESolver}_runing_time.txt"
+            self.save_route_data, f"{self.name}_{self.ODESolver}_runing_time.txt"
         )
         with open(save_path, "w") as file:
             file.write(f"Running time = {self.running_time}\n")
@@ -199,11 +199,31 @@ class BodySystem:
                 angular_momentum[i] += mi * (xi * vyi - yi * vxi)
         return angular_momentum
 
+    def _error(self, arr):
+        i = 0
+        a = arr[i]
+        while a == 0:
+            a = arr[i + 1]
+            i += 1
+        b = np.abs(arr[1:] - a / a)
+        return np.mean(b)
+
+    def save_error(self):
+        save_path = os.path.join(
+            self.save_route_data, f"{self.name}_{self.ODESolver}_runing_time.txt"
+        )
+        with open(save_path, "w") as file:
+            file.write(f"Running time = {self.running_time}\n")
+            file.write(f"Error Enery = {self._error(self.total_energy)}\n")
+            file.write(
+                f"Error momento angular = {self._error(self.angular_momentum)}\n"
+            )
+
     def _create_plot_angular_momentum(self):
-        angular_momentum = self.cal_angular_momentum()
+        self.angular_momentum = self.cal_angular_momentum()
         fig, ax = plt.subplots()
         fig.suptitle("Tiempo vs Momento Angular")
-        ax.plot(self.time, angular_momentum)
+        ax.plot(self.time, self.angular_momentum)
         ax.set_xlabel("Tiempo")
         ax.set_ylabel("Momento angular")
         return fig, ax
@@ -236,10 +256,10 @@ class BodySystem:
         return total_energy
 
     def _create_plot_total_energy(self):
-        total_energy = self.cal_total_energy()
+        self.total_energy = self.cal_total_energy()
         fig, ax = plt.subplots()
         fig.suptitle("Tiempo vs Energia Total")
-        ax.plot(self.time, total_energy)
+        ax.plot(self.time, self.total_energy)
         ax.set_xlabel("Tiempo")
         ax.set_ylabel("Energia Total")
         return fig, ax

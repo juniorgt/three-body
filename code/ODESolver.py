@@ -13,31 +13,40 @@ def runge_kutta_4th_order(f, coords, masses, h, nBodies, G):
     return coords
 
 
-def runge_kutta_5th_order(f, coords, masses, h, nBodies, G):
+def runge_kutta_fehlberg(f, coords, masses, h, nBodies, G):
     k1 = h * f(coords, masses, nBodies, G)
     k2 = h * f(coords + (1 / 4) * k1, masses, nBodies, G)
-    k3 = h * f(coords + (1 / 8) * k1 + (1 / 8) * k2, masses, nBodies, G)
-    k4 = h * f(coords - (1 / 2) * k2 + k3, masses, nBodies, G)
+    k3 = h * f(coords + (3 / 32) * k1 + (9 / 32) * k2, masses, nBodies, G)
+    k4 = h * f(
+        coords + (1932 / 2197) * k1 - (7200 / 2197) * k2 + (7296 / 2197) * k3,
+        masses,
+        nBodies,
+        G,
+    )
     k5 = h * f(
-        coords + (3 / 16) * k1 - (3 / 8) * k2 + (3 / 8) * k3 + (9 / 16) * k4,
+        coords + (439 / 216) * k1 - 8 * k2 + (3680 / 513) * k3 - (845 / 4104) * k4,
         masses,
         nBodies,
         G,
     )
     k6 = h * f(
         coords
-        - (3 / 7) * k1
-        + (2 / 7) * k2
-        + (12 / 7) * k3
-        - (12 / 7) * k4
-        + (8 / 7) * k5,
+        - (8 / 27) * k1
+        + 2 * k2
+        - (3544 / 2565) * k3
+        + (1859 / 4104) * k4
+        - (11 / 40) * k5,
         masses,
         nBodies,
         G,
     )
 
     coords += (
-        (7 / 90) * k1 + (32 / 90) * k3 + (12 / 90) * k4 + (32 / 90) * k5 + (7 / 90) * k6
+        (16 / 135) * k1
+        + (6656 / 12825) * k3
+        + (28561 / 56430) * k4
+        - (9 / 50) * k5
+        + (2 / 55) * k6
     )
 
     return coords
