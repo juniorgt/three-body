@@ -180,7 +180,10 @@ class BodySystem:
             edgecolor="none",
             c=["b", "r", "k"],
         )
-        ax.legend()
+        # Add a legend
+        pos = ax.get_position()
+        ax.set_position([pos.x0, pos.y0, pos.width * 0.8, pos.height])
+        ax.legend(loc="center right", bbox_to_anchor=(1.35, 0.5))
         return fig, ax
 
     def plot_orbit(self, route=None):

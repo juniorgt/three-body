@@ -1,0 +1,3 @@
+Running time = 1.7135646343231201
+Error Enery = 38.53424799820288
+Error momento angular = 1.093320027952115
