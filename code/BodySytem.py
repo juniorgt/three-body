@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
+EPS = np.finfo(float).eps
+
 G = 6.67408313131313e-11
 DEFAULT_T = 200
 DEFAULT_STEPS = 10000

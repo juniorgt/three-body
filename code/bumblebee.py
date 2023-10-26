@@ -11,7 +11,7 @@ def simulation_bumblebee():
         "vx": [0.1842784887, 0.1842784887, -2 * 0.1842784887],
         "vy": [0.5871881740, 0.5871881740, -2 * 0.5871881740],
         "T": 63.5343529785,
-        "steps": 1000000,
+        "h": 0.0001,
     }
 
     bumblebee_euler = BodySystem(bumblebee_init_setup, ODESolver="Euler")
