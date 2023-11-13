@@ -11,7 +11,7 @@ def simulation_goggles():
         "vx": [0.0833000564575194, 0.0833000564575194, -2 * 0.0833000564575194],
         "vy": [0.127889282226563, 0.127889282226563, -2 * 0.127889282226563],
         "T": 10.4668176954385,
-        "h":0.0001, # Mayor presicion para verlet
+        "h": 0.0001,  # Mayor presicion para verlet
     }
 
     goggles_euler = BodySystem(goggles_init_setup, ODESolver="Euler")

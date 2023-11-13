@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "threebody"
+version = "0.1.0"
+description = ""
+authors = ["juniorgtt <junior.guevarat@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.2"
+matplotlib = "^3.8.1"
+notebook = "^7.0.6"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.1.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+    "W191", # indentation contains tabs
+    "F403",
+    "F405",
+]

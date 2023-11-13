@@ -5,7 +5,6 @@ import uuid
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from ODESolvers.methods import rk_methods
 from ODESolvers.rungekutta import RKMethod
 from routes import save_route_data, save_route_images
@@ -318,7 +317,7 @@ class BodySystem:
 
 if "__main__" == __name__:
     init_setup = {
-        "name": "test",
+        "name": "Figure-8",
         "G": 1,
         "M": [1, 1, 1],
         "x": [-0.97000436, 0.0, 0.97000436],

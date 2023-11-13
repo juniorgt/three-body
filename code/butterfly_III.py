@@ -10,8 +10,8 @@ def simulation_butterfly_III():
         "y": [0.0, 0.0, 0.0],
         "vx": [0.405915588857606, 0.405915588857606, -2 * 0.405915588857606],
         "vy": [0.452967645644678, 0.452967645644678, -2 * 0.452967645644678],
-        "T": 13.8657626785699, 
-        "h": 0.0001, # Mayor presicion
+        "T": 13.8657626785699,
+        "h": 0.0001,  # Mayor presicion
     }
 
     butterfly_III_euler = BodySystem(butterfly_III_init_setup, ODESolver="Euler")

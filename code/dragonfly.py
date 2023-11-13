@@ -11,7 +11,7 @@ def simulation_dragonfly():
         "vx": [0.080584285736084, 0.080584285736084, -2 * 0.080584285736084],
         "vy": [0.588836087036132, 0.588836087036132, -2 * 0.588836087036132],
         "T": 21.2709751966648,
-        "h":0.0001,
+        "h": 0.0001,
     }
 
     dragonfly_euler = BodySystem(dragonfly_init_setup, ODESolver="Euler")

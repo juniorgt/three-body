@@ -3,7 +3,7 @@ from BodySytem import BodySystem
 
 def simulation_figure_8():
     figure8_init_setup = {
-        "name": "Figure-8",
+        "name": "Figure-8v2",
         "ODESolver": "Euler",
         "G": 1,
         "M": [1, 1, 1],
@@ -11,8 +11,8 @@ def simulation_figure_8():
         "y": [0.24208753, 0.0, -0.24208753],
         "vx": [0.4662036850, -0.933240737, 0.4662036850],
         "vy": [0.4323657300, -0.86473146, 0.4323657300],
-        "T": 6.3259 * 20,
-        "steps": 1000 * 20,
+        "T": 6.3259 * 10,
+        "h": 0.0001,
     }
 
     figure8_euler = BodySystem(figure8_init_setup, ODESolver="Euler")
