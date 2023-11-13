@@ -1,26 +1,21 @@
-import os
 import json
-import uuid
-from ODESolver import *
-from routes import save_route_images, save_route_data
-import numpy as np
-import matplotlib.pyplot as plt
+import os
 import time
+import uuid
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from ODESolvers.methods import rk_methods
+from ODESolvers.rungekutta import RKMethod
+from routes import save_route_data, save_route_images
 
 EPS = np.finfo(float).eps
 
 G = 6.67408313131313e-11
-DEFAULT_T = 200
-DEFAULT_STEPS = 10000
-DEFAULT_ODE_SOLVER = "RK4"
-
-ODESolvers = {
-    "RK4": runge_kutta_4th_order,
-    "RKF": runge_kutta_fehlberg,
-    "Euler": euler,
-    "Verlet": verlet,
-    "Leapfrog": leapfrog,
-}
+MAX_TIME = 300
+DEFAULT_ODE_SOLVER = "original_rk"
+DEFAULT_FIRST_STEP = 5e-3
 
 default_setup = {
     "name": "Figure-8",
@@ -32,7 +27,6 @@ default_setup = {
     "vx": [0.4662036850, -0.933240737, 0.4662036850],
     "vy": [0.4323657300, -0.86473146, 0.4323657300],
     "T": 6.3259,
-    "steps": DEFAULT_STEPS,
     "h": 5e-3,
 }
 
@@ -56,25 +50,11 @@ class BodySystem:
         self.y = init_setup["y"]
         self.vx = init_setup["vx"]
         self.vy = init_setup["vy"]
-        self.coords = np.array([self.x, self.y, self.vx, self.vy])
+        self.coords = np.concatenate((self.x, self.y, self.vx, self.vy), dtype=float)
 
-        self.T = init_setup.get("T", None)
-        self.steps = init_setup.get("steps", None)
-        self.h = init_setup.get("h", None)
-
-        if self.T is not None and self.steps is not None:
-            self.time = np.linspace(0, self.T, int(self.steps + 1))
-            self.h = self.time[1] - self.time[0]
-        if self.T is None and self.h is not None and self.steps is not None:
-            self.time = np.linspace(0, self.h * self.steps, self.steps + 1)
-        if self.steps is None and self.h is not None and self.T is not None:
-            self.steps = self.T // self.h
-            self.time = np.linspace(0, self.T, int(self.steps + 1))
-        if self.T is None and self.h is None and self.steps is None:
-            self.steps = DEFAULT_STEPS
-            self.T = DEFAULT_T
-            self.time = np.linspace(0, self.T, int(self.steps + 1))
-            self.h = self.time[1] - self.time[0]
+        self.T = init_setup.get("T", MAX_TIME)
+        self.h = init_setup.get("h", DEFAULT_FIRST_STEP)
+        self.steps = None
 
         self.save_route_images = os.path.join(save_route_images, self.name)
         self.save_route_data = os.path.join(save_route_data, self.name)
@@ -116,41 +96,52 @@ class BodySystem:
         ) as json_file:
             json_file.write(json_init_setup)
 
-    def delta_r(self, coords, masses, nBodies, G):
-        x, y, vx, vy = coords.copy()
-        delta = coords.copy()
-        for n in range(nBodies):
-            xn, yn = x[n], y[n]
-            delta_vx, delta_vy = 0.0, 0.0
-            for i in range(nBodies):
-                if i != n:
-                    sep = np.sqrt((xn - x[i]) ** 2 + (yn - y[i]) ** 2)
-                    delta_vx -= G * masses[i] * (xn - x[i]) / sep**3
-                    delta_vy -= G * masses[i] * (yn - y[i]) / sep**3
-            delta[2, n] = delta_vx
-            delta[3, n] = delta_vy
-        delta[0] = vx
-        delta[1] = vy
-        return delta
+    def _generate_fun(self, masses, G, nBodies=3):
+        def fun(t, y):
+            rx, ry, vx, vy = (
+                y[:nBodies],
+                y[nBodies : 2 * nBodies],
+                y[2 * nBodies : 3 * nBodies],
+                y[3 * nBodies :],
+            )
+            acc = np.zeros_like(y)
+            for n in range(nBodies):
+                xn, yn = rx[n], ry[n]
+                acc_vx, acc_vy = 0.0, 0.0
+                for i in range(nBodies):
+                    if i != n:
+                        sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
+                        acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
+                        acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
+                acc[n] = vx[n]
+                acc[n + nBodies] = vy[n]
+                acc[n + 2 * nBodies] = acc_vx
+                acc[n + 3 * nBodies] = acc_vy
+
+            return acc
+
+        return fun
 
     def run_simulation(self):
+        fun = self._generate_fun(self.M, self.G, nBodies=3)
+        ODESolver = RKMethod(
+            rk_methods[self.ODESolver],
+            fun,
+            0,
+            self.T,
+            self.coords,
+            self.h,
+        )
         init_time = time.time()
-        n = len(self.time)
-        self.X = np.zeros((3, n))
-        self.Y = np.zeros((3, n))
-        self.VX = np.zeros((3, n))
-        self.VY = np.zeros((3, n))
-        for i in range(n):
-            coords = ODESolvers[self.ODESolver](
-                self.delta_r, self.coords, self.M, self.h, 3, self.G
-            )
-            self.X[:, i] = coords[0]
-            self.Y[:, i] = coords[1]
-            self.VX[:, i] = coords[2]
-            self.VY[:, i] = coords[3]
+        self.time, y = ODESolver.run()
         end_time = time.time()
         self.running_time = end_time - init_time
         self._save_runnig_time()
+        self.running_time = end_time - init_time
+        self.X = y[:, :3].T
+        self.Y = y[:, 3:6].T
+        self.VX = y[:, 6:9].T
+        self.VY = y[:, 9:12].T
         return self.time, self.X, self.Y, self.VX, self.VY
 
     def _save_runnig_time(self):
@@ -327,20 +318,19 @@ class BodySystem:
 
 if "__main__" == __name__:
     init_setup = {
-        "name": "Figure-8",
-        "ODESolver": "RK4",
+        "name": "test",
         "G": 1,
         "M": [1, 1, 1],
         "x": [-0.97000436, 0.0, 0.97000436],
         "y": [0.24208753, 0.0, -0.24208753],
         "vx": [0.4662036850, -0.933240737, 0.4662036850],
         "vy": [0.4323657300, -0.86473146, 0.4323657300],
-        "T": 6.3259 * 20,
-        "steps": 10000 * 20,
-        "h": 5e-3,
+        "T": 6.3259 * 5,
+        "h": 5e-4,
     }
-    bs1 = BodySystem(init_setup, ODESolver="Leapfrog")
-    bs1.run_simulation()
+
+    bs1 = BodySystem(init_setup, ODESolver="euler")
+    t, x, y, vx, vy = bs1.run_simulation()
     bs1.plot_orbit()
     bs1.plot_angular_momentum()
     bs1.plot_total_energy()
