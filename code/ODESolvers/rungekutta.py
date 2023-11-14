@@ -8,7 +8,7 @@ class RKMethod:
         function,
         y0,
         t0=0.0,
-        t_bound=1.0,
+        t_bound=300,
         first_step=1.0,
         adaptive=False,
         tolerance=1.0e-20,

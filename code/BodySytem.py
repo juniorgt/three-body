@@ -5,15 +5,17 @@ import uuid
 
 import matplotlib.pyplot as plt
 import numpy as np
-from ODESolvers.methods import rk_methods
+from ODESolvers.methods import rk_methods, sym_methods
 from ODESolvers.rungekutta import RKMethod
+from ODESolvers.symplectic import SymIntegrator
 from routes import save_route_data, save_route_images
 
 EPS = np.finfo(float).eps
 
 G = 6.67408313131313e-11
 MAX_TIME = 300
-DEFAULT_ODE_SOLVER = "original_rk"
+DEFAULT_ODE_SOLVER = "rk"
+DEFAULT_METHOD = "original_rk"
 DEFAULT_FIRST_STEP = 5e-3
 
 default_setup = {
@@ -31,7 +33,7 @@ default_setup = {
 
 
 class BodySystem:
-    def __init__(self, init_setup=None, ODESolver=None):
+    def __init__(self, init_setup=None, ODESolver=None, method=None):
         if init_setup is None:
             init_setup = default_setup
 
@@ -41,6 +43,10 @@ class BodySystem:
             ODESolver
             if ODESolver is not None
             else init_setup.get("ODESolver", DEFAULT_ODE_SOLVER)
+        )
+
+        self.method = (
+            method if method is not None else init_setup.get("method", DEFAULT_METHOD)
         )
 
         self.G = init_setup.get("G", 6.67408313131313e-11)
@@ -95,6 +101,8 @@ class BodySystem:
         ) as json_file:
             json_file.write(json_init_setup)
 
+    "TODO: Correguir para que funcione con los metodo symplecticos"
+
     def _generate_fun(self, masses, G, nBodies=3):
         def fun(t, y):
             rx, ry, vx, vy = (
@@ -123,17 +131,26 @@ class BodySystem:
 
     def run_simulation(self):
         fun = self._generate_fun(self.M, self.G, nBodies=3)
-        ODESolver = RKMethod(
-            rk_methods[self.ODESolver],
-            fun,
-            0,
-            self.T,
-            self.coords,
-            self.h,
-        )
+        if self.ODESolver == "rk":
+            ODESolver = RKMethod(
+                rk_methods[self.method],
+                fun,
+                self.coords,
+                0,
+                self.T,
+                self.h,
+            )
+        elif self.ODESolver == "sym":
+            ODESolver = SymIntegrator(
+                sym_methods[self.method], fun, self.coords, 0, self.T, self.h
+            )
+        else:
+            raise ValueError("No se especifico ODESolver")
         init_time = time.time()
         self.time, y = ODESolver.run()
         end_time = time.time()
+        # print(self.time)
+        # print(y)
         self.running_time = end_time - init_time
         self._save_runnig_time()
         self.running_time = end_time - init_time
@@ -182,7 +199,9 @@ class BodySystem:
         if route is None:
             route = self.save_route_images
         fig, _ = self._create_plot_orbit()
-        fig.savefig(os.path.join(route, f"{self.name}_{self.ODESolver}.png"))
+        fig.savefig(
+            os.path.join(route, f"{self.name}_{self.ODESolver}_{self.method}.png")
+        )
 
     def cal_angular_momentum(self):
         angular_momentum = np.zeros(len(self.time))
@@ -324,13 +343,20 @@ if "__main__" == __name__:
         "y": [0.24208753, 0.0, -0.24208753],
         "vx": [0.4662036850, -0.933240737, 0.4662036850],
         "vy": [0.4323657300, -0.86473146, 0.4323657300],
-        "T": 6.3259 * 5,
-        "h": 5e-4,
+        "T": 6.3259,
+        "h": 2,
     }
 
-    bs1 = BodySystem(init_setup, ODESolver="euler")
-    t, x, y, vx, vy = bs1.run_simulation()
-    bs1.plot_orbit()
-    bs1.plot_angular_momentum()
-    bs1.plot_total_energy()
-    bs1.plot_momentum_lineal()
+    bdrk = BodySystem(init_setup, ODESolver="rk", method="euler")
+    t, x, y, vx, vy = bdrk.run_simulation()
+    print(t)
+    print(x)
+    bdrk.plot_orbit()
+    bdsym = BodySystem(init_setup, ODESolver="sym", method="euler")
+    t, x, y, vx, vy = bdsym.run_simulation()
+    print(t)
+    print(x)
+    bdrk.plot_orbit()
+    # bs1.plot_angular_momentum()
+    # bs1.plot_total_energy()
+    # bs1.plot_momentum_lineal()
