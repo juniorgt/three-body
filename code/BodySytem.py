@@ -31,6 +31,18 @@ default_setup = {
     "h": 5e-3,
 }
 
+default_setup = {
+    "name": "Figure-8",
+    "ODESolver": DEFAULT_ODE_SOLVER,
+    "G": 1,
+    "M": [1, 1, 1],
+    "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
+    "y2": [0.0, -0.933240737, 0.0, -0.86473146],
+    "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
+    "T": 6.3259,
+    "h": 5e-3,
+}
+
 
 class BodySystem:
     def __init__(self, init_setup=None, ODESolver=None, method=None):
@@ -51,11 +63,9 @@ class BodySystem:
 
         self.G = init_setup.get("G", 6.67408313131313e-11)
         self.M = init_setup["M"]
-        self.x = init_setup["x"]
-        self.y = init_setup["y"]
-        self.vx = init_setup["vx"]
-        self.vy = init_setup["vy"]
-        self.coords = np.concatenate((self.x, self.y, self.vx, self.vy), dtype=float)
+        self.coords = np.concatenate(
+            (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
+        )
 
         self.T = init_setup.get("T", MAX_TIME)
         self.h = init_setup.get("h", DEFAULT_FIRST_STEP)
@@ -64,7 +74,7 @@ class BodySystem:
         self.save_route_images = os.path.join(save_route_images, self.name)
         self.save_route_data = os.path.join(save_route_data, self.name)
         self._make_dir_saves()
-        self._encode_init_setup()
+        # self._encode_init_setup()
         self.running_time = 0
 
     def _make_dir_saves(self):
@@ -101,31 +111,54 @@ class BodySystem:
         ) as json_file:
             json_file.write(json_init_setup)
 
-    "TODO: Correguir para que funcione con los metodo symplecticos"
+    # def _generate_fun(self, masses, G, nBodies=3):
+    #     def fun(t, y):
+    #         rx, ry, vx, vy = (
+    #             y[:nBodies],
+    #             y[nBodies : 2 * nBodies],
+    #             y[2 * nBodies : 3 * nBodies],
+    #             y[3 * nBodies :],
+    #         )
+    #         acc = np.zeros_like(y)
+    #         for n in range(nBodies):
+    #             xn, yn = rx[n], ry[n]
+    #             acc_vx, acc_vy = 0.0, 0.0
+    #             for i in range(nBodies):
+    #                 if i != n:
+    #                     sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
+    #                     acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
+    #                     acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
+    #             acc[n] = vx[n]
+    #             acc[n + nBodies] = vy[n]
+    #             acc[n + 2 * nBodies] = acc_vx
+    #             acc[n + 3 * nBodies] = acc_vy
+
+    #         return acc
+
+    #     return fun
 
     def _generate_fun(self, masses, G, nBodies=3):
-        def fun(t, y):
-            rx, ry, vx, vy = (
-                y[:nBodies],
-                y[nBodies : 2 * nBodies],
-                y[2 * nBodies : 3 * nBodies],
-                y[3 * nBodies :],
-            )
-            acc = np.zeros_like(y)
-            for n in range(nBodies):
-                xn, yn = rx[n], ry[n]
-                acc_vx, acc_vy = 0.0, 0.0
-                for i in range(nBodies):
-                    if i != n:
-                        sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
-                        acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
-                        acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
-                acc[n] = vx[n]
-                acc[n + nBodies] = vy[n]
-                acc[n + 2 * nBodies] = acc_vx
-                acc[n + 3 * nBodies] = acc_vy
+        n_dim = 2  # Numero de dimensiones
+        n_variable = 2  # Velocidad y Posicion
 
-            return acc
+        def fun(t, y):  # Constante de gravitación universal
+            # Reshape the array for easier access
+            body_states = y.reshape((nBodies, n_dim * n_variable)).astype(float)
+
+            # Extract positions and velocities separately
+            positions, velocities = body_states[:, ::2], body_states[:, 1::2]
+            accelerations = np.zeros_like(positions, dtype=float)
+            for i in range(nBodies):
+                acc = np.zeros_like(positions[0], dtype=float)
+                for j in range(nBodies):
+                    if i != j:
+                        sep = np.sqrt(np.sum(np.power(positions[i] - positions[j], 2)))
+                        acc -= G * masses[i] * (positions[i] - positions[j]) / sep**3
+                accelerations[i] = acc
+
+            return np.vstack(
+                (velocities.flatten(), accelerations.flatten())
+            ).T.flatten()
 
         return fun
 
@@ -337,12 +370,12 @@ class BodySystem:
 if "__main__" == __name__:
     init_setup = {
         "name": "Figure-8",
+        "ODESolver": DEFAULT_ODE_SOLVER,
         "G": 1,
         "M": [1, 1, 1],
-        "x": [-0.97000436, 0.0, 0.97000436],
-        "y": [0.24208753, 0.0, -0.24208753],
-        "vx": [0.4662036850, -0.933240737, 0.4662036850],
-        "vy": [0.4323657300, -0.86473146, 0.4323657300],
+        "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
+        "y2": [0.0, -0.933240737, 0.0, -0.86473146],
+        "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
         "h": 2,
     }
