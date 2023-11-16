@@ -43,6 +43,18 @@ default_setup = {
     "h": 5e-3,
 }
 
+default_setup = {
+    "name": "Figure-8",
+    "ODESolver": DEFAULT_ODE_SOLVER,
+    "G": 1,
+    "M": [1, 1, 1],
+    "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
+    "y2": [0.0, -0.933240737, 0.0, -0.86473146],
+    "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
+    "T": 6.3259,
+    "h": 5e-3,
+}
+
 
 class BodySystem:
     def __init__(self, init_setup=None, ODESolver=None, method=None):
@@ -63,6 +75,9 @@ class BodySystem:
 
         self.G = init_setup.get("G", 6.67408313131313e-11)
         self.M = init_setup["M"]
+        self.coords = np.concatenate(
+            (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
+        )
         self.coords = np.concatenate(
             (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
         )
@@ -111,6 +126,31 @@ class BodySystem:
         ) as json_file:
             json_file.write(json_init_setup)
 
+    # def _generate_fun(self, masses, G, nBodies=3):
+    #     def fun(t, y):
+    #         rx, ry, vx, vy = (
+    #             y[:nBodies],
+    #             y[nBodies : 2 * nBodies],
+    #             y[2 * nBodies : 3 * nBodies],
+    #             y[3 * nBodies :],
+    #         )
+    #         acc = np.zeros_like(y)
+    #         for n in range(nBodies):
+    #             xn, yn = rx[n], ry[n]
+    #             acc_vx, acc_vy = 0.0, 0.0
+    #             for i in range(nBodies):
+    #                 if i != n:
+    #                     sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
+    #                     acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
+    #                     acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
+    #             acc[n] = vx[n]
+    #             acc[n + nBodies] = vy[n]
+    #             acc[n + 2 * nBodies] = acc_vx
+    #             acc[n + 3 * nBodies] = acc_vy
+
+    #         return acc
+
+    #     return fun
     # def _generate_fun(self, masses, G, nBodies=3):
     #     def fun(t, y):
     #         rx, ry, vx, vy = (
@@ -373,6 +413,9 @@ if "__main__" == __name__:
         "ODESolver": DEFAULT_ODE_SOLVER,
         "G": 1,
         "M": [1, 1, 1],
+        "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
+        "y2": [0.0, -0.933240737, 0.0, -0.86473146],
+        "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
