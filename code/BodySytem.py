@@ -2,6 +2,7 @@ import json
 import os
 import time
 import uuid
+from collections.abc import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,32 +23,7 @@ default_setup = {
     "name": "Figure-8",
     "ODESolver": DEFAULT_ODE_SOLVER,
     "G": 1,
-    "M": [1, 1, 1],
-    "x": [-0.97000436, 0.0, 0.97000436],
-    "y": [0.24208753, 0.0, -0.24208753],
-    "vx": [0.4662036850, -0.933240737, 0.4662036850],
-    "vy": [0.4323657300, -0.86473146, 0.4323657300],
-    "T": 6.3259,
-    "h": 5e-3,
-}
-
-default_setup = {
-    "name": "Figure-8",
-    "ODESolver": DEFAULT_ODE_SOLVER,
-    "G": 1,
-    "M": [1, 1, 1],
-    "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
-    "y2": [0.0, -0.933240737, 0.0, -0.86473146],
-    "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
-    "T": 6.3259,
-    "h": 5e-3,
-}
-
-default_setup = {
-    "name": "Figure-8",
-    "ODESolver": DEFAULT_ODE_SOLVER,
-    "G": 1,
-    "M": [1, 1, 1],
+    "M": [1.0, 1.0, 1.0],
     "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
     "y2": [0.0, -0.933240737, 0.0, -0.86473146],
     "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
@@ -74,10 +50,7 @@ class BodySystem:
         )
 
         self.G = init_setup.get("G", 6.67408313131313e-11)
-        self.M = init_setup["M"]
-        self.coords = np.concatenate(
-            (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
-        )
+        self.M = np.array(init_setup["M"], dtype=float)
         self.coords = np.concatenate(
             (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
         )
@@ -126,75 +99,29 @@ class BodySystem:
         ) as json_file:
             json_file.write(json_init_setup)
 
-    # def _generate_fun(self, masses, G, nBodies=3):
-    #     def fun(t, y):
-    #         rx, ry, vx, vy = (
-    #             y[:nBodies],
-    #             y[nBodies : 2 * nBodies],
-    #             y[2 * nBodies : 3 * nBodies],
-    #             y[3 * nBodies :],
-    #         )
-    #         acc = np.zeros_like(y)
-    #         for n in range(nBodies):
-    #             xn, yn = rx[n], ry[n]
-    #             acc_vx, acc_vy = 0.0, 0.0
-    #             for i in range(nBodies):
-    #                 if i != n:
-    #                     sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
-    #                     acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
-    #                     acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
-    #             acc[n] = vx[n]
-    #             acc[n + nBodies] = vy[n]
-    #             acc[n + 2 * nBodies] = acc_vx
-    #             acc[n + 3 * nBodies] = acc_vy
+    def _generate_fun(
+        self, masses: np.ndarray, G: float, nBodies=3
+    ) -> Callable[[float, np.ndarray], np.ndarray]:
+        n_dim = 2
+        n_variable = 2
 
-    #         return acc
-
-    #     return fun
-    # def _generate_fun(self, masses, G, nBodies=3):
-    #     def fun(t, y):
-    #         rx, ry, vx, vy = (
-    #             y[:nBodies],
-    #             y[nBodies : 2 * nBodies],
-    #             y[2 * nBodies : 3 * nBodies],
-    #             y[3 * nBodies :],
-    #         )
-    #         acc = np.zeros_like(y)
-    #         for n in range(nBodies):
-    #             xn, yn = rx[n], ry[n]
-    #             acc_vx, acc_vy = 0.0, 0.0
-    #             for i in range(nBodies):
-    #                 if i != n:
-    #                     sep = np.sqrt((xn - rx[i]) ** 2 + (yn - ry[i]) ** 2)
-    #                     acc_vx -= G * masses[i] * (xn - rx[i]) / sep**3
-    #                     acc_vy -= G * masses[i] * (yn - ry[i]) / sep**3
-    #             acc[n] = vx[n]
-    #             acc[n + nBodies] = vy[n]
-    #             acc[n + 2 * nBodies] = acc_vx
-    #             acc[n + 3 * nBodies] = acc_vy
-
-    #         return acc
-
-    #     return fun
-
-    def _generate_fun(self, masses, G, nBodies=3):
-        n_dim = 2  # Numero de dimensiones
-        n_variable = 2  # Velocidad y Posicion
-
-        def fun(t, y):  # Constante de gravitación universal
-            # Reshape the array for easier access
+        def fun(t: float, y: np.ndarray) -> np.ndarray:
             body_states = y.reshape((nBodies, n_dim * n_variable)).astype(float)
 
-            # Extract positions and velocities separately
             positions, velocities = body_states[:, ::2], body_states[:, 1::2]
-            accelerations = np.zeros_like(positions, dtype=float)
-            for i in range(nBodies):
-                acc = np.zeros_like(positions[0], dtype=float)
-                for j in range(nBodies):
-                    if i != j:
-                        sep = np.sqrt(np.sum(np.power(positions[i] - positions[j], 2)))
-                        acc -= G * masses[i] * (positions[i] - positions[j]) / sep**3
-                accelerations[i] = acc
+
+            position_diff = positions[:, np.newaxis] - positions
+            distances = np.linalg.norm(position_diff, axis=2)
+            np.fill_diagonal(distances, 1)
+
+            acc = (
+                -G
+                * masses[:, np.newaxis]
+                * position_diff
+                / (distances[:, :, np.newaxis] ** 3)
+            )
+
+            accelerations = np.sum(acc, axis=1)
 
             return np.vstack(
                 (velocities.flatten(), accelerations.flatten())
@@ -222,15 +149,13 @@ class BodySystem:
         init_time = time.time()
         self.time, y = ODESolver.run()
         end_time = time.time()
-        # print(self.time)
-        # print(y)
         self.running_time = end_time - init_time
         self._save_runnig_time()
         self.running_time = end_time - init_time
-        self.X = y[:, :3].T
-        self.Y = y[:, 3:6].T
-        self.VX = y[:, 6:9].T
-        self.VY = y[:, 9:12].T
+        self.X = y[:, 0::4].T
+        self.Y = y[:, 2::4].T
+        self.VX = y[:, 1::4].T
+        self.VY = y[:, 3::4].T
         return self.time, self.X, self.Y, self.VX, self.VY
 
     def _save_runnig_time(self):
@@ -416,23 +341,13 @@ if "__main__" == __name__:
         "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
-        "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
-        "y2": [0.0, -0.933240737, 0.0, -0.86473146],
-        "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 2,
+        "h": 0.005,
     }
 
-    bdrk = BodySystem(init_setup, ODESolver="rk", method="euler")
+    bdrk = BodySystem(ODESolver="rk", method="original_rk")
     t, x, y, vx, vy = bdrk.run_simulation()
-    print(t)
-    print(x)
     bdrk.plot_orbit()
-    bdsym = BodySystem(init_setup, ODESolver="sym", method="euler")
+    bdsym = BodySystem(ODESolver="sym", method="verlet")
     t, x, y, vx, vy = bdsym.run_simulation()
-    print(t)
-    print(x)
-    bdrk.plot_orbit()
-    # bs1.plot_angular_momentum()
-    # bs1.plot_total_energy()
-    # bs1.plot_momentum_lineal()
+    bdsym.plot_orbit()
