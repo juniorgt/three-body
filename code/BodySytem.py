@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import uuid
@@ -6,6 +5,8 @@ from collections.abc import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tomli_w
+import tomllib
 from ODESolvers.methods import rk_methods, sym_methods
 from ODESolvers.rungekutta import RKMethod
 from ODESolvers.symplectic import SymIntegrator
@@ -19,9 +20,10 @@ DEFAULT_ODE_SOLVER = "rk"
 DEFAULT_METHOD = "original_rk"
 DEFAULT_FIRST_STEP = 5e-3
 
-default_setup = {
+DEFAULT_SETUP = {
     "name": "Figure-8",
     "ODESolver": DEFAULT_ODE_SOLVER,
+    "method": DEFAULT_METHOD,
     "G": 1,
     "M": [1.0, 1.0, 1.0],
     "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
@@ -33,71 +35,68 @@ default_setup = {
 
 
 class BodySystem:
-    def __init__(self, init_setup=None, ODESolver=None, method=None):
+    def __init__(
+        self,
+        init_setup=None,
+        ODESolver: str | None = None,
+        method: str | None = None,
+    ):
+        self._set_default_setup(init_setup)
+        self._initialize_parameters(ODESolver, method)
+        self._create_save_directories()
+        self.save_setup_to_toml()
+
+    def _set_default_setup(self, init_setup):
         if init_setup is None:
-            init_setup = default_setup
-
+            init_setup = DEFAULT_SETUP
         self.name = init_setup.get("name", f"orbit_{str(uuid.uuid4())[:5]}")
-
-        self.ODESolver = (
-            ODESolver
-            if ODESolver is not None
-            else init_setup.get("ODESolver", DEFAULT_ODE_SOLVER)
-        )
-
-        self.method = (
-            method if method is not None else init_setup.get("method", DEFAULT_METHOD)
-        )
-
-        self.G = init_setup.get("G", 6.67408313131313e-11)
+        self.G = init_setup.get("G", G)
         self.M = np.array(init_setup["M"], dtype=float)
         self.coords = np.concatenate(
             (init_setup["y1"], init_setup["y2"], init_setup["y3"]), dtype=float
         )
-
         self.T = init_setup.get("T", MAX_TIME)
         self.h = init_setup.get("h", DEFAULT_FIRST_STEP)
         self.steps = None
 
+    def _initialize_parameters(self, ODESolver: str | None, method: str | None):
+        self.ODESolver = (
+            ODESolver
+            if ODESolver is not None
+            else self.init_setup.get("ODESolver", DEFAULT_ODE_SOLVER)
+        )
+        self.method = (
+            method
+            if method is not None
+            else self.init_setup.get("method", DEFAULT_METHOD)
+        )
+
+    def _create_save_directories(self):
         self.save_route_images = os.path.join(save_route_images, self.name)
         self.save_route_data = os.path.join(save_route_data, self.name)
-        self._make_dir_saves()
-        # self._encode_init_setup()
-        self.running_time = 0
-
-    def _make_dir_saves(self):
         os.makedirs(self.save_route_images, exist_ok=True)
         os.makedirs(self.save_route_data, exist_ok=True)
 
-    def _encode_init_setup(self):
-        init_setup = {
-            "ODESolver": self.ODESolver,
-            "G": self.G,
-            "m1": self.M[0],
-            "v1": [self.vx[0], self.vy[0]],
-            "r1": [self.x[0], self.y[0]],
-            "m2": self.M[1],
-            "v2": [self.vx[1], self.vy[1]],
-            "r2": [self.x[1], self.y[1]],
-            "m3": self.M[2],
-            "v3": [self.vx[2], self.vy[2]],
-            "r3": [self.x[2], self.y[2]],
-            "T": self.T,
-            "steps": self.steps,
-            "h": self.h,
+    def save_setup_to_toml(self):
+        data = {
+            "init_setup": {
+                "name": self.name,
+                "ODESolver": self.ODESolver,
+                "method": self.method,
+                "G": self.G,
+                "M": self.M.tolist(),
+                "y1": self.coords[:4].tolist(),
+                "y2": self.coords[4:8].tolist(),
+                "y3": self.coords[8:].tolist(),
+                "T": self.T,
+                "h": self.h,
+            }
         }
-        json_init_setup = json.dumps(init_setup, indent=4)
-        # with open(
-        #     os.path.join(self.save_route_images, f"{self.name}_{self.ODESolver}.json"),
-        #     "w",
-        # ) as json_file:
-        #     json_file.write(json_init_setup)
-
-        with open(
-            os.path.join(self.save_route_data, f"{self.name}_{self.ODESolver}.json"),
-            "w",
-        ) as json_file:
-            json_file.write(json_init_setup)
+        self.file_path_toml = os.path.join(
+            self.save_route_data, f"{self.name}_{self.ODESolver}_{self.method}.toml"
+        )
+        with open(self.file_path_toml, "wb") as f:
+            tomli_w.dump(data, f)
 
     def _generate_fun(
         self, masses: np.ndarray, G: float, nBodies=3
@@ -151,7 +150,6 @@ class BodySystem:
         end_time = time.time()
         self.running_time = end_time - init_time
         self._save_runnig_time()
-        self.running_time = end_time - init_time
         self.X = y[:, 0::4].T
         self.Y = y[:, 2::4].T
         self.VX = y[:, 1::4].T
@@ -159,11 +157,12 @@ class BodySystem:
         return self.time, self.X, self.Y, self.VX, self.VY
 
     def _save_runnig_time(self):
-        save_path = os.path.join(
-            self.save_route_data, f"{self.name}_{self.ODESolver}_runing_time.txt"
-        )
-        with open(save_path, "w") as file:
-            file.write(f"Running time = {self.running_time}\n")
+        with open(self.file_path_toml, "rb") as f:
+            data = tomllib.load(f)
+        metrics = {"metrics": {"running_time": self.running_time}}
+        data = data | metrics
+        with open(self.file_path_toml, "wb") as f:
+            tomli_w.dump(data, f)
 
     def save_simulation(self):
         pass
@@ -221,15 +220,18 @@ class BodySystem:
         return np.mean(b)
 
     def save_error(self):
-        save_path = os.path.join(
-            self.save_route_data, f"{self.name}_{self.ODESolver}_runing_time.txt"
-        )
-        with open(save_path, "w") as file:
-            file.write(f"Running time = {self.running_time}\n")
-            file.write(f"Error Enery = {self._error(self.total_energy)}\n")
-            file.write(
-                f"Error momento angular = {self._error(self.angular_momentum)}\n"
-            )
+        with open(self.file_path_toml, "rb") as f:
+            data = tomllib.load(f)
+        dic_metrics = {
+            "metrics": {
+                "running_time": self.running_time,
+                "error_enery": self._error(self.total_energy),
+                "error_angular_momentum": self._error(self.angular_momentum),
+            }
+        }
+        data |= dic_metrics
+        with open(self.file_path_toml, "wb") as f:
+            tomli_w.dump(data, f)
 
     def _create_plot_angular_momentum(self):
         self.angular_momentum = self.cal_angular_momentum()
@@ -342,10 +344,10 @@ if "__main__" == __name__:
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 0.005,
+        "h": 5e-3,
     }
 
-    bdrk = BodySystem(ODESolver="rk", method="original_rk")
+    bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="original_rk")
     t, x, y, vx, vy = bdrk.run_simulation()
     bdrk.plot_orbit()
     bdsym = BodySystem(ODESolver="sym", method="verlet")
