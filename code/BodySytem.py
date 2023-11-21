@@ -42,7 +42,7 @@ class BodySystem:
         method: str | None = None,
     ):
         self._set_default_setup(init_setup)
-        self._initialize_parameters(ODESolver, method)
+        self._initialize_parameters(init_setup, ODESolver, method)
         self._create_save_directories()
         self.save_setup_to_toml()
 
@@ -59,21 +59,25 @@ class BodySystem:
         self.h = init_setup.get("h", DEFAULT_FIRST_STEP)
         self.steps = None
 
-    def _initialize_parameters(self, ODESolver: str | None, method: str | None):
+    def _initialize_parameters(
+        self, init_setup, ODESolver: str | None, method: str | None
+    ):
         self.ODESolver = (
             ODESolver
             if ODESolver is not None
-            else self.init_setup.get("ODESolver", DEFAULT_ODE_SOLVER)
+            else init_setup.get("ODESolver", DEFAULT_ODE_SOLVER)
         )
         self.method = (
-            method
-            if method is not None
-            else self.init_setup.get("method", DEFAULT_METHOD)
+            method if method is not None else init_setup.get("method", DEFAULT_METHOD)
         )
 
     def _create_save_directories(self):
-        self.save_route_images = os.path.join(save_route_images, self.name)
-        self.save_route_data = os.path.join(save_route_data, self.name)
+        self.save_route_images = os.path.join(
+            save_route_images, self.name, f"{self.ODESolver}_{self.method}"
+        )
+        self.save_route_data = os.path.join(
+            save_route_data, self.name, f"{self.ODESolver}_{self.method}"
+        )
         os.makedirs(self.save_route_images, exist_ok=True)
         os.makedirs(self.save_route_data, exist_ok=True)
 
@@ -146,15 +150,15 @@ class BodySystem:
         else:
             raise ValueError("No se especifico ODESolver")
         init_time = time.time()
-        self.time, y = ODESolver.run()
+        self.time, self.y = ODESolver.run()
         end_time = time.time()
         self.running_time = end_time - init_time
         self._save_runnig_time()
-        self.X = y[:, 0::4].T
-        self.Y = y[:, 2::4].T
-        self.VX = y[:, 1::4].T
-        self.VY = y[:, 3::4].T
-        return self.time, self.X, self.Y, self.VX, self.VY
+        self.X = self.y[:, 0::4].T
+        self.Y = self.y[:, 2::4].T
+        self.VX = self.y[:, 1::4].T
+        self.VY = self.y[:, 3::4].T
+        return self.time, self.y
 
     def _save_runnig_time(self):
         with open(self.file_path_toml, "rb") as f:
@@ -164,8 +168,8 @@ class BodySystem:
         with open(self.file_path_toml, "wb") as f:
             tomli_w.dump(data, f)
 
-    def save_simulation(self):
-        pass
+    def save_simulation(self) -> None:
+        print(self.time)
 
     def load_simulation(self):
         pass
@@ -199,6 +203,7 @@ class BodySystem:
         fig.savefig(
             os.path.join(route, f"{self.name}_{self.ODESolver}_{self.method}.png")
         )
+        plt.close(fig)
 
     def cal_angular_momentum(self):
         angular_momentum = np.zeros(len(self.time))
@@ -247,8 +252,12 @@ class BodySystem:
             route = self.save_route_images
         fig, _ = self._create_plot_angular_momentum()
         fig.savefig(
-            os.path.join(route, f"{self.name}_{self.ODESolver}_angular_momentum.png")
+            os.path.join(
+                route,
+                f"{self.name}_{self.ODESolver}_{self.method}_angular_momentum.png",
+            )
         )
+        plt.close(fig)
 
     def cal_total_energy(self):
         kinetic_energy = np.zeros(len(self.time))
@@ -283,8 +292,11 @@ class BodySystem:
             route = self.save_route_images
         fig, _ = self._create_plot_total_energy()
         fig.savefig(
-            os.path.join(route, f"{self.name}_{self.ODESolver}_total_energy.png")
+            os.path.join(
+                route, f"{self.name}_{self.ODESolver}_{self.method}_total_energy.png"
+            )
         )
+        plt.close(fig)
 
     def cal_linear_momentum(self):
         linear_momentum_x = np.zeros(len(self.time))
@@ -330,8 +342,18 @@ class BodySystem:
             route = self.save_route_images
         fig, _ = self._create_plot_linear_momentum()
         fig.savefig(
-            os.path.join(route, f"{self.name}_{self.ODESolver}_linear_momentum.png")
+            os.path.join(
+                route, f"{self.name}_{self.ODESolver}_{self.method}_linear_momentum.png"
+            )
         )
+        plt.close(fig)
+
+    def plot(self):
+        self.plot_orbit()
+        self.plot_total_energy()
+        self.plot_angular_momentum()
+        self.plot_momentum_lineal()
+        self.save_error()
 
 
 if "__main__" == __name__:
@@ -347,9 +369,9 @@ if "__main__" == __name__:
         "h": 5e-3,
     }
 
-    bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="original_rk")
-    t, x, y, vx, vy = bdrk.run_simulation()
-    bdrk.plot_orbit()
-    bdsym = BodySystem(ODESolver="sym", method="verlet")
-    t, x, y, vx, vy = bdsym.run_simulation()
-    bdsym.plot_orbit()
+    bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
+    t, y = bdrk.run_simulation()
+    # bdrk.plot_orbit()
+    # bdsym = BodySystem(ODESolver="sym", method="verlet")
+    # t, y = bdsym.run_simulation()
+    # bdsym.plot_orbit()

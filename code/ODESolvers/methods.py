@@ -7,8 +7,8 @@ rk_methods = {
     "midpoint": np.array([[0, 0, 0], [a6, a6, 0], [None, 0, a5]]),
     "heun": np.array([[0, 0, 0], [a5, a5, 0], [None, a6, a6]]),
     "ralston": np.array([[0, 0, 0], [a10, a10, 0], [None, a2, a7]]),
-    "kutta_second": np.array([[0, 0, 0], [a6, a6, 0], [None, 0, a5]]),
-    "kutta_third": np.array(
+    "second": np.array([[0, 0, 0], [a6, a6, 0], [None, 0, a5]]),
+    "third": np.array(
         [[0, 0, 0, 0], [a6, a6, 0, 0], [a5, -a5, a11, 0], [None, a12, a10, a12]]
     ),
     "heun_third": np.array(
@@ -20,7 +20,7 @@ rk_methods = {
     "ssprk3": np.array(
         [[0, 0, 0, 0], [a5, a5, 0, 0], [a6, a2, a2, 0], [None, a12, a12, a10]]
     ),
-    "original_rk": np.array(
+    "four": np.array(
         [
             [0, 0, 0, 0, 0],
             [a6, a6, 0, 0, 0],
