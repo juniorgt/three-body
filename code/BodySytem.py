@@ -169,7 +169,12 @@ class BodySystem:
             tomli_w.dump(data, f)
 
     def save_simulation(self) -> None:
-        print(self.time)
+        self.path_t = os.path.join(self.save_route_data, "t.npy")
+        self.path_y = os.path.join(self.save_route_data, "y.npy")
+        with open(self.path_t, "wb") as f:
+            np.save(f, self.time)
+        with open(self.path_y, "wb") as f:
+            np.save(f, self.y)
 
     def load_simulation(self):
         pass
@@ -370,7 +375,9 @@ if "__main__" == __name__:
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
-    t, y = bdrk.run_simulation()
+    # t, y = bdrk.run_simulation()
+    # bdrk.save_simulation()
+    bdrk.load_simulation()
     # bdrk.plot_orbit()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
