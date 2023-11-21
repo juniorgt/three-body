@@ -81,6 +81,9 @@ class BodySystem:
         os.makedirs(self.save_route_images, exist_ok=True)
         os.makedirs(self.save_route_data, exist_ok=True)
 
+        self.path_t = os.path.join(self.save_route_data, "t.npy")
+        self.path_y = os.path.join(self.save_route_data, "y.npy")
+
     def save_setup_to_toml(self):
         data = {
             "init_setup": {
@@ -154,11 +157,14 @@ class BodySystem:
         end_time = time.time()
         self.running_time = end_time - init_time
         self._save_runnig_time()
-        self.X = self.y[:, 0::4].T
-        self.Y = self.y[:, 2::4].T
-        self.VX = self.y[:, 1::4].T
-        self.VY = self.y[:, 3::4].T
+        self.maping_data(self.y)
         return self.time, self.y
+
+    def maping_data(self, y):
+        self.X = y[:, 0::4].T
+        self.Y = y[:, 2::4].T
+        self.VX = y[:, 1::4].T
+        self.VY = y[:, 3::4].T
 
     def _save_runnig_time(self):
         with open(self.file_path_toml, "rb") as f:
@@ -169,15 +175,26 @@ class BodySystem:
             tomli_w.dump(data, f)
 
     def save_simulation(self) -> None:
-        self.path_t = os.path.join(self.save_route_data, "t.npy")
-        self.path_y = os.path.join(self.save_route_data, "y.npy")
         with open(self.path_t, "wb") as f:
             np.save(f, self.time)
         with open(self.path_y, "wb") as f:
             np.save(f, self.y)
 
     def load_simulation(self):
-        pass
+        if not (os.path.exists(self.path_t) and os.path.exists(self.path_y)):
+            raise FileNotFoundError("The specified files do not exist!")
+
+        try:
+            with open(self.path_t, "rb") as f:
+                self.time = np.load(f)
+
+            with open(self.path_y, "rb") as f:
+                self.y = np.load(f, allow_pickle=True)
+
+        except Exception as e:
+            print(f"Error loading files: {e}")
+
+        self.maping_data(self.y)
 
     def _create_plot_orbit(self):
         fig, ax = plt.subplots()
@@ -371,14 +388,16 @@ if "__main__" == __name__:
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 5e-3,
+        "h": 5e-5,
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
     # t, y = bdrk.run_simulation()
     # bdrk.save_simulation()
     bdrk.load_simulation()
-    # bdrk.plot_orbit()
+    # print(bdrk.time)
+    # print(bdrk.y)
+    bdrk.plot_orbit()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
     # bdsym.plot_orbit()
