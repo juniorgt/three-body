@@ -44,7 +44,6 @@ class BodySystem:
         self._set_default_setup(init_setup)
         self._initialize_parameters(init_setup, ODESolver, method)
         self._create_save_directories()
-        self.save_setup_to_toml()
 
     def _set_default_setup(self, init_setup):
         if init_setup is None:
@@ -85,7 +84,10 @@ class BodySystem:
         self.path_y = os.path.join(self.save_route_data, "y.npy")
 
     def save_setup_to_toml(self):
-        data = {
+        file_name = f"{self.name}_{self.ODESolver}_{self.method}.toml"
+        self.file_path_toml = os.path.join(self.save_route_data, file_name)
+
+        setup_data = {
             "init_setup": {
                 "name": self.name,
                 "ODESolver": self.ODESolver,
@@ -99,11 +101,13 @@ class BodySystem:
                 "h": self.h,
             }
         }
-        self.file_path_toml = os.path.join(
-            self.save_route_data, f"{self.name}_{self.ODESolver}_{self.method}.toml"
-        )
-        with open(self.file_path_toml, "wb") as f:
-            tomli_w.dump(data, f)
+
+        try:
+            with open(self.file_path_toml, "wb") as toml_file:
+                tomli_w.dump(setup_data, toml_file)
+
+        except Exception as e:
+            print(f"Error saving the TOML file: {e}")
 
     def _generate_fun(
         self, masses: np.ndarray, G: float, nBodies=3
@@ -156,7 +160,9 @@ class BodySystem:
         self.time, self.y = ODESolver.run()
         end_time = time.time()
         self.running_time = end_time - init_time
-        self._save_runnig_time()
+        self.save_setup_to_toml()
+        self._save_running_time()
+        self.save_simulation()
         self.maping_data(self.y)
         return self.time, self.y
 
@@ -166,19 +172,34 @@ class BodySystem:
         self.VX = y[:, 1::4].T
         self.VY = y[:, 3::4].T
 
-    def _save_runnig_time(self):
-        with open(self.file_path_toml, "rb") as f:
-            data = tomllib.load(f)
+    def _save_running_time(self):
+        try:
+            with open(self.file_path_toml, "rb") as file:
+                existing_data = tomllib.load(file)
+        except FileNotFoundError:
+            existing_data = {}
+
         metrics = {"metrics": {"running_time": self.running_time}}
-        data = data | metrics
-        with open(self.file_path_toml, "wb") as f:
-            tomli_w.dump(data, f)
+        existing_data.update(metrics)
+
+        try:
+            with open(self.file_path_toml, "wb") as file:
+                tomli_w.dump(existing_data, file)
+        except Exception as e:
+            print(f"Error saving the TOML file: {e}")
 
     def save_simulation(self) -> None:
-        with open(self.path_t, "wb") as f:
-            np.save(f, self.time)
-        with open(self.path_y, "wb") as f:
-            np.save(f, self.y)
+        try:
+            with open(self.path_t, "wb") as file_time:
+                np.save(file_time, self.time)
+        except Exception as e:
+            print(f"Error when saving time: {e}")
+
+        try:
+            with open(self.path_y, "wb") as file_y:
+                np.save(file_y, self.y)
+        except Exception as e:
+            print(f"Error saving 'y' data: {e}")
 
     def load_simulation(self):
         if not (os.path.exists(self.path_t) and os.path.exists(self.path_y)):
@@ -394,10 +415,10 @@ if "__main__" == __name__:
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
     # t, y = bdrk.run_simulation()
     # bdrk.save_simulation()
-    bdrk.load_simulation()
+    # bdrk.load_simulation()
     # print(bdrk.time)
     # print(bdrk.y)
-    bdrk.plot_orbit()
+    # bdrk.plot_orbit()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
     # bdsym.plot_orbit()
