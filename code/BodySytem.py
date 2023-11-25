@@ -80,8 +80,8 @@ class BodySystem:
         os.makedirs(self.save_route_images, exist_ok=True)
         os.makedirs(self.save_route_data, exist_ok=True)
 
-        self.path_t = os.path.join(self.save_route_data, "t.npy")
-        self.path_y = os.path.join(self.save_route_data, "y.npy")
+        file_name = f"{self.name}_{self.ODESolver}_{self.method}.text"
+        self.path_data = os.path.join(self.save_route_data, file_name)
 
     def save_setup_to_toml(self):
         file_name = f"{self.name}_{self.ODESolver}_{self.method}.toml"
@@ -105,7 +105,6 @@ class BodySystem:
         try:
             with open(self.file_path_toml, "wb") as toml_file:
                 tomli_w.dump(setup_data, toml_file)
-
         except Exception as e:
             print(f"Error saving the TOML file: {e}")
 
@@ -117,22 +116,17 @@ class BodySystem:
 
         def fun(t: float, y: np.ndarray) -> np.ndarray:
             body_states = y.reshape((nBodies, n_dim * n_variable)).astype(float)
-
             positions, velocities = body_states[:, ::2], body_states[:, 1::2]
-
             position_diff = positions[:, np.newaxis] - positions
             distances = np.linalg.norm(position_diff, axis=2)
             np.fill_diagonal(distances, 1)
-
             acc = (
                 -G
                 * masses[:, np.newaxis]
                 * position_diff
                 / (distances[:, :, np.newaxis] ** 3)
             )
-
             accelerations = np.sum(acc, axis=1)
-
             return np.vstack(
                 (velocities.flatten(), accelerations.flatten())
             ).T.flatten()
@@ -163,10 +157,11 @@ class BodySystem:
         self.save_setup_to_toml()
         self._save_running_time()
         self.save_simulation()
-        self.maping_data(self.y)
+        self._maping_data(self.y)
+        self.cal_total_energy()
         return self.time, self.y
 
-    def maping_data(self, y):
+    def _maping_data(self, y):
         self.X = y[:, 0::4].T
         self.Y = y[:, 2::4].T
         self.VX = y[:, 1::4].T
@@ -189,33 +184,23 @@ class BodySystem:
             print(f"Error saving the TOML file: {e}")
 
     def save_simulation(self) -> None:
+        simulation_data = np.hstack((self.time[:, np.newaxis], self.y))
         try:
-            with open(self.path_t, "wb") as file_time:
-                np.save(file_time, self.time)
-        except Exception as e:
-            print(f"Error when saving time: {e}")
+            np.savetxt(self.path_data, simulation_data)
+        except OSError:
+            print(f"Error saving data to {self.path_data}")
 
-        try:
-            with open(self.path_y, "wb") as file_y:
-                np.save(file_y, self.y)
-        except Exception as e:
-            print(f"Error saving 'y' data: {e}")
-
-    def load_simulation(self):
-        if not (os.path.exists(self.path_t) and os.path.exists(self.path_y)):
-            raise FileNotFoundError("The specified files do not exist!")
+    def load_simulation(self) -> None:
+        if not os.path.exists(self.path_data):
+            raise FileNotFoundError("The specified file does not exist!")
 
         try:
-            with open(self.path_t, "rb") as f:
-                self.time = np.load(f)
-
-            with open(self.path_y, "rb") as f:
-                self.y = np.load(f, allow_pickle=True)
-
+            self.data = np.loadtxt(self.path_data)
+            self.time = self.data[:, 0]
+            self.y = self.data[:, 1:]
+            self._maping_data(self.y)
         except Exception as e:
-            print(f"Error loading files: {e}")
-
-        self.maping_data(self.y)
+            print(f"Error loading file: {e}")
 
     def _create_plot_orbit(self):
         fig, ax = plt.subplots()
@@ -303,26 +288,41 @@ class BodySystem:
         plt.close(fig)
 
     def cal_total_energy(self):
-        kinetic_energy = np.zeros(len(self.time))
-        potential_energy = np.zeros(len(self.time))
+        self.kinetic_energy = np.zeros(len(self.time))
+        self.potential_energy = np.zeros(len(self.time))
         for i in range(len(self.time)):
             for j in range(3):
                 mi = self.M[j]
                 vxi, vyi = self.VX[j, i], self.VY[j, i]
                 xi, yi = self.X[j, i], self.Y[j, i]
-                kinetic_energy[i] += 0.5 * mi * (vxi**2 + vyi**2)
+                self.kinetic_energy[i] = 0.5 * mi * (vxi**2 + vyi**2)
                 for k in range(3):
                     if k != j:
                         mj = self.M[k]
                         xj, yj = self.X[k, i], self.Y[k, i]
                         r = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-                        potential_energy[i] += -G * mi * mj / r
+                        self.potential_energy[i] = -G * mi * mj / r
 
-        total_energy = kinetic_energy + potential_energy
-        return total_energy
+        # max = (
+        #     np.max(self.kinetic_energy)
+        #     if np.max(self.kinetic_energy) > np.max(self.potential_energy)
+        #     else np.max(self.potential_energy)
+        # )
+
+        # min = (
+        #     np.min(self.kinetic_energy)
+        #     if np.min(self.kinetic_energy) < np.min(self.potential_energy)
+        #     else np.min(self.potential_energy)
+        # )
+
+        # self.kinetic_energy = (self.kinetic_energy - min) / (max - min)
+        # self.potential_energy = -1 * (self.potential_energy - min) / (max - min)
+        self.total_energy = self.kinetic_energy + self.potential_energy
+        # print(self.kinetic_energy)
+        # print(self.potential_energy)
+        # print(self.total_energy)
 
     def _create_plot_total_energy(self):
-        self.total_energy = self.cal_total_energy()
         fig, ax = plt.subplots()
         fig.suptitle("Tiempo vs Energia Total")
         ax.plot(self.time, self.total_energy)
@@ -337,6 +337,39 @@ class BodySystem:
         fig.savefig(
             os.path.join(
                 route, f"{self.name}_{self.ODESolver}_{self.method}_total_energy.png"
+            )
+        )
+        plt.close(fig)
+
+    def _create_plot_energy(self):
+        fig, ax = plt.subplots()
+        fig.suptitle("Tiempo vs Energia Total")
+        # ax.plot(
+        #     self.time,
+        #     self.total_energy,
+        #     color="k",
+        # )
+        ax.plot(
+            self.time,
+            self.kinetic_energy,
+            color="r",
+        )
+        ax.plot(
+            self.time,
+            self.potential_energy,
+            color="b",
+        )
+        ax.set_xlabel("Tiempo")
+        ax.set_ylabel("Energia")
+        return fig, ax
+
+    def plot_energy(self, route=None):
+        if route is None:
+            route = self.save_route_images
+        fig, _ = self._create_plot_energy()
+        fig.savefig(
+            os.path.join(
+                route, f"{self.name}_{self.ODESolver}_{self.method}_energy.png"
             )
         )
         plt.close(fig)
@@ -396,29 +429,31 @@ class BodySystem:
         self.plot_total_energy()
         self.plot_angular_momentum()
         self.plot_momentum_lineal()
+        self.plot_energy()
         self.save_error()
 
 
 if "__main__" == __name__:
     init_setup = {
-        "name": "Figure-8",
-        "ODESolver": DEFAULT_ODE_SOLVER,
+        "name": "test",
         "G": 1,
         "M": [1, 1, 1],
         "y1": [-0.97000436, 0.4662036850, 0.24208753, 0.4323657300],  # x1, vx1, y1, vy1
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 5e-5,
+        "h": 1e-3,
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
-    # t, y = bdrk.run_simulation()
+    t, y = bdrk.run_simulation()
     # bdrk.save_simulation()
+    bdrk.plot_energy()
     # bdrk.load_simulation()
     # print(bdrk.time)
     # print(bdrk.y)
-    # bdrk.plot_orbit()
+    bdrk.plot_orbit()
+    # bdrk.plot_total_energy()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
     # bdsym.plot_orbit()
