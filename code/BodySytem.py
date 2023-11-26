@@ -203,7 +203,7 @@ class BodySystem:
         except Exception as e:
             print(f"Error loading file: {e}")
 
-    def _create_plot_orbit(
+    def generate_orbit_figure(
         self,
         marker="o",
         s=200,
@@ -269,10 +269,23 @@ class BodySystem:
         )
         return fig, ax
 
-    def plot_orbit(self, route=None):
+    def save_orbit_figure(self, route=None):
+        """
+        Plot the orbit and save the figure.
+
+        Parameters:
+        route (str): The path where the figure will be saved. If None, the default path is used.
+
+        Returns:
+        None
+        """
         if route is None:
             route = self.save_route_images
-        fig, _ = self._create_plot_orbit()
+        else:
+            if not os.path.exists(route):
+                os.makedirs(route)
+
+        fig, _ = self.generate_orbit_figure()
         fig.savefig(
             os.path.join(route, f"{self.name}_{self.ODESolver}_{self.method}.png")
         )
@@ -462,7 +475,7 @@ class BodySystem:
         plt.close(fig)
 
     def plot(self):
-        self.plot_orbit()
+        self.save_orbit_figure()
         self.plot_total_energy()
         self.plot_angular_momentum()
         self.plot_momentum_lineal()
@@ -489,7 +502,7 @@ if "__main__" == __name__:
     # bdrk.load_simulation()
     # print(bdrk.time)
     # print(bdrk.y)
-    bdrk.plot_orbit()
+    bdrk.save_orbit_figure()
     bdrk.plot_total_energy()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
