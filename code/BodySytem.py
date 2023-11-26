@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tomli_w
 import tomllib
+from matplotlib.colors import to_hex
 from ODESolvers.methods import rk_methods, sym_methods
 from ODESolvers.rungekutta import RKMethod
 from ODESolvers.symplectic import SymIntegrator
@@ -202,26 +203,70 @@ class BodySystem:
         except Exception as e:
             print(f"Error loading file: {e}")
 
-    def _create_plot_orbit(self):
-        fig, ax = plt.subplots()
-        fig.suptitle(f"{self.name}")
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.plot(self.X[0, :], self.Y[0, :], color="b", label="cuerpo 1", alpha=0.5)
-        ax.plot(self.X[1, :], self.Y[1, :], color="r", label="cuerpo 2", alpha=0.5)
-        ax.plot(self.X[2, :], self.Y[2, :], color="k", label="cuerpo 3", alpha=0.5)
-        ax.scatter(
-            self.X[:, -1],
-            self.Y[:, -1],
-            marker="o",
-            s=100,
-            edgecolor="none",
-            c=["b", "r", "k"],
+    def _create_plot_orbit(
+        self,
+        marker="o",
+        s=200,
+        figsize=(9.6, 7.2),
+        dpi=200,
+        fontsize=14,
+        legend_loc="center right",
+        legend_bbox_to_anchor=(1.35, 0.5),
+        linewidth=3,
+    ):
+        """
+        Create a plot of the orbit.
+
+        Parameters:
+        marker: Marker style for the scatter plot.
+        s: Size of markers for the scatter plot.
+        figsize: Size of the figure.
+        dpi: Dots per inch.
+        fontsize: Font size for the title and labels.
+        legend_loc: Location of the legend.
+        legend_bbox_to_anchor: The bbox that the legend will be anchored to.
+        linewidth (float): Width of the lines in the plot.
+
+        Returns:
+        fig: The created figure.
+        ax: The created axes.
+        """
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        fig.suptitle(f"{self.name}", fontsize=fontsize)
+        ax.set_xlabel("X", fontsize=fontsize)
+        ax.set_ylabel("Y", fontsize=fontsize)
+
+        custom_colors = ["b", "r", "k"]
+        color = iter(
+            plt.cm.rainbow(
+                np.linspace(0, 1, max(0, y_reshaped.shape[1] - len(custom_colors)))
+            )
         )
-        # Add a legend
+
+        for i in range(y_reshaped.shape[1]):
+            if i < len(custom_colors):
+                c_hex = custom_colors[i]
+            else:
+                c = next(color)
+                c_hex = to_hex(c)
+            ax.plot(
+                y_reshaped[:, i, 0],
+                y_reshaped[:, i, 2],
+                color=c_hex,
+                label=f"cuerpo {i+1}",
+                alpha=0.5,
+                linewidth=linewidth,
+            )
+            ax.scatter(
+                y_reshaped[-1, i, 0], y_reshaped[-1, i, 2], marker=marker, s=s, c=c_hex
+            )
+
         pos = ax.get_position()
         ax.set_position([pos.x0, pos.y0, pos.width * 0.8, pos.height])
-        ax.legend(loc="center right", bbox_to_anchor=(1.35, 0.5))
+        ax.legend(
+            loc=legend_loc, bbox_to_anchor=legend_bbox_to_anchor, fontsize=fontsize
+        )
         return fig, ax
 
     def plot_orbit(self, route=None):
@@ -434,7 +479,7 @@ if "__main__" == __name__:
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 1e-4,
+        "h": 1e-3,
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
