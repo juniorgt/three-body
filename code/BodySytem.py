@@ -158,7 +158,7 @@ class BodySystem:
         self._save_running_time()
         self.save_simulation()
         self._maping_data(self.y)
-        self.cal_total_energy()
+        self.calculate_total_energy()
         return self.time, self.y
 
     def _maping_data(self, y):
@@ -287,40 +287,30 @@ class BodySystem:
         )
         plt.close(fig)
 
-    def cal_total_energy(self):
-        self.kinetic_energy = np.zeros(len(self.time))
-        self.potential_energy = np.zeros(len(self.time))
-        for i in range(len(self.time)):
-            for j in range(3):
-                mi = self.M[j]
-                vxi, vyi = self.VX[j, i], self.VY[j, i]
-                xi, yi = self.X[j, i], self.Y[j, i]
-                self.kinetic_energy[i] = 0.5 * mi * (vxi**2 + vyi**2)
-                for k in range(3):
-                    if k != j:
-                        mj = self.M[k]
-                        xj, yj = self.X[k, i], self.Y[k, i]
-                        r = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-                        self.potential_energy[i] = -G * mi * mj / r
+    def calculate_kinetic_energy(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        velocities = y_reshaped[:, :, [1, 3]]
+        kinetic_energy = 0.5 * self.M * np.sum(velocities**2, axis=2)
+        total_kinetic_energy = np.sum(kinetic_energy, axis=1)
+        return total_kinetic_energy
 
-        # max = (
-        #     np.max(self.kinetic_energy)
-        #     if np.max(self.kinetic_energy) > np.max(self.potential_energy)
-        #     else np.max(self.potential_energy)
-        # )
+    def calculate_potential_energy(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        positions = y_reshaped[:, :, [0, 2]]
+        differences = positions[:, :, np.newaxis, :] - positions[:, np.newaxis, :, :]
+        distances = np.linalg.norm(differences, axis=-1)
+        pairwise_potential_energy = np.divide(
+            -G * self.M[np.newaxis, :, np.newaxis] * self.M[np.newaxis, :],
+            distances,
+            where=distances != 0,
+        )
+        total_potential_energy = np.sum(pairwise_potential_energy, axis=(1, 2))
+        return total_potential_energy
 
-        # min = (
-        #     np.min(self.kinetic_energy)
-        #     if np.min(self.kinetic_energy) < np.min(self.potential_energy)
-        #     else np.min(self.potential_energy)
-        # )
-
-        # self.kinetic_energy = (self.kinetic_energy - min) / (max - min)
-        # self.potential_energy = -1 * (self.potential_energy - min) / (max - min)
+    def calculate_total_energy(self):
+        self.kinetic_energy = self.calculate_kinetic_energy()
+        self.potential_energy = self.calculate_potential_energy()
         self.total_energy = self.kinetic_energy + self.potential_energy
-        # print(self.kinetic_energy)
-        # print(self.potential_energy)
-        # print(self.total_energy)
 
     def _create_plot_total_energy(self):
         fig, ax = plt.subplots()
@@ -342,26 +332,28 @@ class BodySystem:
         plt.close(fig)
 
     def _create_plot_energy(self):
-        fig, ax = plt.subplots()
+        fig, ax1 = plt.subplots()
         fig.suptitle("Tiempo vs Energia Total")
-        # ax.plot(
-        #     self.time,
-        #     self.total_energy,
-        #     color="k",
-        # )
-        ax.plot(
-            self.time,
-            self.kinetic_energy,
-            color="r",
-        )
-        ax.plot(
-            self.time,
-            self.potential_energy,
-            color="b",
-        )
-        ax.set_xlabel("Tiempo")
-        ax.set_ylabel("Energia")
-        return fig, ax
+
+        ax1.plot(self.time, self.kinetic_energy, color="r", alpha=0.5)
+        ax1.set_xlabel("Tiempo")
+        ax1.set_ylabel("Energia Cinetica", color="r")
+        ax1.tick_params(axis="y", labelcolor="r")
+
+        ax2 = ax1.twinx()
+        ax2.plot(self.time, self.potential_energy, color="b")
+        ax2.set_ylabel("Energia Potencial", color="b")
+        ax2.tick_params(axis="y", labelcolor="b")
+
+        ax3 = ax1.twinx()
+        # Move the third y-axis to the right by 60 points
+        ax3.spines["right"].set_position(("outward", 60))
+        ax3.plot(self.time, self.total_energy, color="k", alpha=0.5)
+        ax3.set_ylabel("Energia Total", color="k")
+        ax3.tick_params(axis="y", labelcolor="k")
+
+        fig.tight_layout()
+        return fig, (ax1, ax2, ax3)
 
     def plot_energy(self, route=None):
         if route is None:
@@ -442,7 +434,7 @@ if "__main__" == __name__:
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 1e-3,
+        "h": 1e-4,
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
@@ -453,7 +445,7 @@ if "__main__" == __name__:
     # print(bdrk.time)
     # print(bdrk.y)
     bdrk.plot_orbit()
-    # bdrk.plot_total_energy()
+    bdrk.plot_total_energy()
     # bdsym = BodySystem(ODESolver="sym", method="verlet")
     # t, y = bdsym.run_simulation()
     # bdsym.plot_orbit()
