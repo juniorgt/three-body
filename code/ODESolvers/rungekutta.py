@@ -93,8 +93,8 @@ class RKMethod:
             if calc_error:
                 error.append(new_values[2])
 
-        t = np.array(t)
-        y = np.array(y)
+        t = np.array(t, dtype=float)
+        y = np.array(y, dtype=float)
         return t, y
 
 
