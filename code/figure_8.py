@@ -2,9 +2,9 @@ from BodySytem import BodySystem
 from ODESolvers.methods import rk_methods, sym_methods
 
 
-def simulation_figure_8():
+def simulation_figure_8(h):
     init_setup = {
-        "name": "Figure-8",
+        "name": f"Figure-8_{str(h)}",
         "ODESolver": "rk",
         "method": "original_rk",
         "G": 1,
@@ -13,7 +13,7 @@ def simulation_figure_8():
         "y2": [0.0, -0.933240737, 0.0, -0.86473146],
         "y3": [0.97000436, 0.4662036850, -0.24208753, 0.4323657300],
         "T": 6.3259,
-        "h": 5e-1,
+        "h": h,
     }
 
     for rk in rk_methods.keys():
@@ -28,4 +28,11 @@ def simulation_figure_8():
 
 
 if "__main__" == __name__:
-    simulation_figure_8()
+    simulation_figure_8(1e-1)
+    simulation_figure_8(1e-2)
+    simulation_figure_8(1e-3)
+    simulation_figure_8(1e-4)
+    simulation_figure_8(1e-5)
+    simulation_figure_8(1e-6)
+    simulation_figure_8(1e-7)
+    simulation_figure_8(1e-8)
