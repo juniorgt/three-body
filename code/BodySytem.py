@@ -207,9 +207,9 @@ class BodySystem:
         fig.suptitle(f"{self.name}")
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
-        ax.plot(self.X[0, :], self.Y[0, :], color="b", label="cuerpo 1")
-        ax.plot(self.X[1, :], self.Y[1, :], color="r", label="cuerpo 2")
-        ax.plot(self.X[2, :], self.Y[2, :], color="k", label="cuerpo 3")
+        ax.plot(self.X[0, :], self.Y[0, :], color="b", label="cuerpo 1", alpha=0.5)
+        ax.plot(self.X[1, :], self.Y[1, :], color="r", label="cuerpo 2", alpha=0.5)
+        ax.plot(self.X[2, :], self.Y[2, :], color="k", label="cuerpo 3", alpha=0.5)
         ax.scatter(
             self.X[:, -1],
             self.Y[:, -1],
