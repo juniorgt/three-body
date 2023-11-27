@@ -281,14 +281,14 @@ class BodySystem:
         """
         if route is None:
             route = self.save_route_images
-        else:
-            if not os.path.exists(route):
-                os.makedirs(route)
+
+        if not os.path.exists(route):
+            os.makedirs(route)
 
         fig, _ = self.generate_orbit_figure()
-        fig.savefig(
-            os.path.join(route, f"{self.name}_{self.ODESolver}_{self.method}.png")
-        )
+        filename = f"{self.name}_{self.ODESolver}_{self.method}.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
         plt.close(fig)
 
     def cal_angular_momentum(self):
