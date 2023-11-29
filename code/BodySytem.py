@@ -452,16 +452,14 @@ class BodySystem:
         fig.savefig(filepath)
         plt.close(fig)
 
-    def _error(self, arr):
-        i = 0
-        a = arr[i]
-        while a == 0:
-            a = arr[i + 1]
-            i += 1
-        b = np.abs(arr[1:] - a / a)
-        return np.mean(b)
+    def _error(self, data):
+        reference_value = data[0]
+        if reference_value == 0:
+            reference_value = EPS
+        absolute_errors = np.abs(data[1:] - reference_value)
+        relative_errors = absolute_errors / np.abs(reference_value)
+        return np.mean(absolute_errors), np.mean(relative_errors)
 
-    # TODO: FIX self.total_energy no exists
     def save_error(self):
         with open(self.file_path_toml, "rb") as f:
             data = tomllib.load(f)
