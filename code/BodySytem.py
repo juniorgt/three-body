@@ -204,6 +204,7 @@ class BodySystem:
         velocities = y_reshaped[:, :, [1, 3]]
         kinetic_energy = 0.5 * self.M * np.sum(velocities**2, axis=2)
         total_kinetic_energy = np.sum(kinetic_energy, axis=1)
+        self._save_error_metric("Error Energia Cinetica", total_kinetic_energy)
         return total_kinetic_energy
 
     def calculate_potential_energy(self):
@@ -217,12 +218,14 @@ class BodySystem:
             where=distances != 0,
         )
         total_potential_energy = np.sum(pairwise_potential_energy, axis=(1, 2))
+        self._save_error_metric("Error Energia Potencial", total_potential_energy)
         return total_potential_energy
 
     def calculate_total_energy(self):
         kinetic_energy = self.calculate_kinetic_energy()
         potential_energy = self.calculate_potential_energy()
         total_energy = kinetic_energy + potential_energy
+        self._save_error_metric("Error Energia Total", total_energy)
         return total_energy
 
     def calculate_angular_momentum(self):
@@ -230,6 +233,7 @@ class BodySystem:
         velocities = y_reshaped[:, :, [1, 3]]
         positions = y_reshaped[:, :, [0, 2]]
         angular_momentum = np.sum(self.M * np.cross(positions, velocities), axis=1)
+        self._save_error_metric("Error Energia Momento Angular", angular_momentum)
         return angular_momentum
 
     def calculate_linear_momentum(self):
@@ -238,6 +242,8 @@ class BodySystem:
         linear_momentum = np.sum(self.M.reshape(3, 1) * velocities, axis=1)
         linear_momentum_x = linear_momentum[:, 0]
         linear_momentum_y = linear_momentum[:, 1]
+        self._save_error_metric("Error Energia Momento Lineal X", linear_momentum_x)
+        self._save_error_metric("Error Energia Momento Lineal Y", linear_momentum_y)
         return linear_momentum_x, linear_momentum_y
 
     def generate_orbit_figure(
@@ -452,6 +458,7 @@ class BodySystem:
         fig.savefig(filepath)
         plt.close(fig)
 
+    # TODO: Revisar el error abosluto y relativo
     def _error(self, data):
         reference_value = data[0]
         if reference_value == 0:
@@ -460,17 +467,15 @@ class BodySystem:
         relative_errors = absolute_errors / np.abs(reference_value)
         return np.mean(absolute_errors), np.mean(relative_errors)
 
-    def save_error(self):
+    def _save_error_metric(self, metric_name, value):
         with open(self.file_path_toml, "rb") as f:
             data = tomllib.load(f)
-        dic_metrics = {
-            "metrics": {
-                "running_time": self.running_time,
-                "error_enery": self._error(self.total_energy),
-                "error_angular_momentum": self._error(self.angular_momentum),
-            }
-        }
-        data |= dic_metrics
+
+        if "metrics" not in data:
+            data["metrics"] = {}
+
+        data["metrics"][metric_name] = self._error(value)
+
         with open(self.file_path_toml, "wb") as f:
             tomli_w.dump(data, f)
 
@@ -480,7 +485,6 @@ class BodySystem:
         self.save_total_energy_figure()
         self.save_angular_momentum_figure()
         self.save_linear_momentum_figure()
-        # self.save_error()
 
 
 if "__main__" == __name__:
