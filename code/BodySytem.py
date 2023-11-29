@@ -3,6 +3,7 @@ import time
 import uuid
 from collections.abc import Callable
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import tomli_w
@@ -12,6 +13,8 @@ from ODESolvers.methods import rk_methods, sym_methods
 from ODESolvers.rungekutta import RKMethod
 from ODESolvers.symplectic import SymIntegrator
 from routes import save_route_data, save_route_images
+
+mpl.rcParams["figure.figsize"] = (9.6, 7.2)
 
 EPS = np.finfo(float).eps
 
@@ -158,15 +161,9 @@ class BodySystem:
         self.save_setup_to_toml()
         self._save_running_time()
         self.save_simulation()
-        self._maping_data(self.y)
         self.calculate_total_energy()
+        self.calculate_linear_momentum()
         return self.time, self.y
-
-    def _maping_data(self, y):
-        self.X = y[:, 0::4].T
-        self.Y = y[:, 2::4].T
-        self.VX = y[:, 1::4].T
-        self.VY = y[:, 3::4].T
 
     def _save_running_time(self):
         try:
@@ -199,9 +196,49 @@ class BodySystem:
             self.data = np.loadtxt(self.path_data)
             self.time = self.data[:, 0]
             self.y = self.data[:, 1:]
-            self._maping_data(self.y)
         except Exception as e:
             print(f"Error loading file: {e}")
+
+    def calculate_kinetic_energy(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        velocities = y_reshaped[:, :, [1, 3]]
+        kinetic_energy = 0.5 * self.M * np.sum(velocities**2, axis=2)
+        total_kinetic_energy = np.sum(kinetic_energy, axis=1)
+        return total_kinetic_energy
+
+    def calculate_potential_energy(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        positions = y_reshaped[:, :, [0, 2]]
+        differences = positions[:, :, np.newaxis, :] - positions[:, np.newaxis, :, :]
+        distances = np.linalg.norm(differences, axis=-1)
+        pairwise_potential_energy = np.divide(
+            -G * self.M[np.newaxis, :, np.newaxis] * self.M[np.newaxis, :],
+            distances,
+            where=distances != 0,
+        )
+        total_potential_energy = np.sum(pairwise_potential_energy, axis=(1, 2))
+        return total_potential_energy
+
+    def calculate_total_energy(self):
+        kinetic_energy = self.calculate_kinetic_energy()
+        potential_energy = self.calculate_potential_energy()
+        total_energy = kinetic_energy + potential_energy
+        return total_energy
+
+    def calculate_angular_momentum(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        velocities = y_reshaped[:, :, [1, 3]]
+        positions = y_reshaped[:, :, [0, 2]]
+        angular_momentum = np.sum(self.M * np.cross(positions, velocities), axis=1)
+        return angular_momentum
+
+    def calculate_linear_momentum(self):
+        y_reshaped = self.y.reshape(len(self.time), -1, 4)
+        velocities = y_reshaped[:, :, [1, 3]]
+        linear_momentum = np.sum(self.M.reshape(3, 1) * velocities, axis=1)
+        linear_momentum_x = linear_momentum[:, 0]
+        linear_momentum_y = linear_momentum[:, 1]
+        return linear_momentum_x, linear_momentum_y
 
     def generate_orbit_figure(
         self,
@@ -269,6 +306,72 @@ class BodySystem:
         )
         return fig, ax
 
+    def generate_energy_figure(self, show_total_energy=False, alpha=1):
+        kinetic_energy = self.calculate_kinetic_energy()
+        potential_energy = self.calculate_potential_energy()
+        total_energy = kinetic_energy + potential_energy
+        fig, ax1 = plt.subplots()
+        fig.suptitle("Tiempo vs Energia Total")
+
+        ax1.plot(self.time, kinetic_energy, color="r", alpha=alpha)
+        ax1.set_xlabel("Tiempo")
+        ax1.set_ylabel("Energia Cinetica", color="r")
+        ax1.tick_params(axis="y", labelcolor="r")
+
+        ax2 = ax1.twinx()
+        ax2.plot(self.time, potential_energy, color="b", alpha=alpha)
+        ax2.set_ylabel("Energia Potencial", color="b")
+        ax2.tick_params(axis="y", labelcolor="b")
+
+        if show_total_energy:
+            ax3 = ax1.twinx()
+            # Move the third y-axis to the right by 60 points
+            ax3.spines["right"].set_position(("outward", 60))
+            ax3.plot(self.time, total_energy, color="k", alpha=alpha)
+            ax3.set_ylabel("Energia Total", color="k")
+            ax3.tick_params(axis="y", labelcolor="k")
+            return fig, (ax1, ax2, ax3)
+
+        fig.tight_layout()
+        return fig, (ax1, ax2)
+
+    def generate_total_energy_figure(self):
+        total_energy = self.calculate_total_energy()
+        fig, ax = plt.subplots()
+        fig.suptitle("Tiempo vs Energia Total")
+        ax.plot(self.time, total_energy)
+        ax.set_xlabel("Tiempo")
+        ax.set_ylabel("Energia Total")
+        return fig, ax
+
+    def generate_angular_momentum_figure(self):
+        angular_momentum = self.calculate_angular_momentum()
+        fig, ax = plt.subplots()
+        fig.suptitle("Tiempo vs Momento Angular")
+        ax.plot(self.time, angular_momentum)
+        ax.set_xlabel("Tiempo")
+        ax.set_ylabel("Momento angular")
+        return fig, ax
+
+    def generate_linear_momentum_figure(self):
+        linear_momentum_x, linear_momentum_y = self.calculate_linear_momentum()
+        fig, ax1 = plt.subplots()
+        fig.suptitle("Tiempo vs Momento Lineal")
+
+        ax1.plot(self.time, linear_momentum_x, color="r")
+        ax1.set_xlabel("Tiempo")
+        ax1.set_ylabel("Momemento Lineal en x", color="r")
+        ax1.tick_params(axis="y", labelcolor="r")
+
+        ax2 = ax1.twinx()
+        ax2.plot(self.time, linear_momentum_y, color="b")
+        ax2.set_xlabel("Tiempo")
+        ax2.set_ylabel("Momemento Lineal en y", color="b")
+        ax2.tick_params(axis="y", labelcolor="b")
+
+        fig.tight_layout()
+        return fig, (ax1, ax2)
+
     def save_orbit_figure(self, route=None):
         """
         Plot the orbit and save the figure.
@@ -283,7 +386,7 @@ class BodySystem:
             route = self.save_route_images
 
         if not os.path.exists(route):
-            os.makedirs(route)
+            os.makedirs(route, exist_ok=True)
 
         fig, _ = self.generate_orbit_figure()
         filename = f"{self.name}_{self.ODESolver}_{self.method}.png"
@@ -291,15 +394,63 @@ class BodySystem:
         fig.savefig(filepath)
         plt.close(fig)
 
-    def cal_angular_momentum(self):
-        angular_momentum = np.zeros(len(self.time))
-        for i in range(len(self.time)):
-            for j in range(3):
-                mi = self.M[j]
-                xi, yi = self.X[j, i], self.Y[j, i]
-                vxi, vyi = self.VX[j, i], self.VY[j, i]
-                angular_momentum[i] += mi * (xi * vyi - yi * vxi)
-        return angular_momentum
+    def save_energy_figure(self, route=None):
+        if route is None:
+            route = self.save_route_images
+
+        if not os.path.exists(route):
+            os.makedirs(route, exist_ok=True)
+
+        fig, _ = self.generate_energy_figure()
+        filename = f"{self.name}_{self.ODESolver}_{self.method}_energy.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+
+        fig, _ = self.generate_energy_figure(True, alpha=0.5)
+        filename = f"{self.name}_{self.ODESolver}_{self.method}_energy_t.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+
+    def save_total_energy_figure(self, route=None):
+        if route is None:
+            route = self.save_route_images
+
+        if not os.path.exists(route):
+            os.makedirs(route, exist_ok=True)
+
+        fig, _ = self.generate_total_energy_figure()
+        filename = f"{self.name}_{self.ODESolver}_{self.method}_total_energy.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+
+    def save_angular_momentum_figure(self, route=None):
+        if route is None:
+            route = self.save_route_images
+
+        if not os.path.exists(route):
+            os.makedirs(route, exist_ok=True)
+
+        fig, _ = self.generate_angular_momentum_figure()
+        filename = f"{self.name}_{self.ODESolver}_{self.method}_angular_momentum.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+
+    def save_linear_momentum_figure(self, route=None):
+        if route is None:
+            route = self.save_route_images
+
+        if not os.path.exists(route):
+            os.makedirs(route, exist_ok=True)
+
+        fig, _ = self.generate_linear_momentum_figure()
+        filename = f"{self.name}_{self.ODESolver}_{self.method}_linear_momentum.png"
+        filepath = os.path.join(route, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
 
     def _error(self, arr):
         i = 0
@@ -310,6 +461,7 @@ class BodySystem:
         b = np.abs(arr[1:] - a / a)
         return np.mean(b)
 
+    # TODO: FIX self.total_energy no exists
     def save_error(self):
         with open(self.file_path_toml, "rb") as f:
             data = tomllib.load(f)
@@ -324,163 +476,13 @@ class BodySystem:
         with open(self.file_path_toml, "wb") as f:
             tomli_w.dump(data, f)
 
-    def _create_plot_angular_momentum(self):
-        self.angular_momentum = self.cal_angular_momentum()
-        fig, ax = plt.subplots()
-        fig.suptitle("Tiempo vs Momento Angular")
-        ax.plot(self.time, self.angular_momentum)
-        ax.set_xlabel("Tiempo")
-        ax.set_ylabel("Momento angular")
-        return fig, ax
-
-    def plot_angular_momentum(self, route=None):
-        if route is None:
-            route = self.save_route_images
-        fig, _ = self._create_plot_angular_momentum()
-        fig.savefig(
-            os.path.join(
-                route,
-                f"{self.name}_{self.ODESolver}_{self.method}_angular_momentum.png",
-            )
-        )
-        plt.close(fig)
-
-    def calculate_kinetic_energy(self):
-        y_reshaped = self.y.reshape(len(self.time), -1, 4)
-        velocities = y_reshaped[:, :, [1, 3]]
-        kinetic_energy = 0.5 * self.M * np.sum(velocities**2, axis=2)
-        total_kinetic_energy = np.sum(kinetic_energy, axis=1)
-        return total_kinetic_energy
-
-    def calculate_potential_energy(self):
-        y_reshaped = self.y.reshape(len(self.time), -1, 4)
-        positions = y_reshaped[:, :, [0, 2]]
-        differences = positions[:, :, np.newaxis, :] - positions[:, np.newaxis, :, :]
-        distances = np.linalg.norm(differences, axis=-1)
-        pairwise_potential_energy = np.divide(
-            -G * self.M[np.newaxis, :, np.newaxis] * self.M[np.newaxis, :],
-            distances,
-            where=distances != 0,
-        )
-        total_potential_energy = np.sum(pairwise_potential_energy, axis=(1, 2))
-        return total_potential_energy
-
-    def calculate_total_energy(self):
-        self.kinetic_energy = self.calculate_kinetic_energy()
-        self.potential_energy = self.calculate_potential_energy()
-        self.total_energy = self.kinetic_energy + self.potential_energy
-
-    def _create_plot_total_energy(self):
-        fig, ax = plt.subplots()
-        fig.suptitle("Tiempo vs Energia Total")
-        ax.plot(self.time, self.total_energy)
-        ax.set_xlabel("Tiempo")
-        ax.set_ylabel("Energia Total")
-        return fig, ax
-
-    def plot_total_energy(self, route=None):
-        if route is None:
-            route = self.save_route_images
-        fig, _ = self._create_plot_total_energy()
-        fig.savefig(
-            os.path.join(
-                route, f"{self.name}_{self.ODESolver}_{self.method}_total_energy.png"
-            )
-        )
-        plt.close(fig)
-
-    def _create_plot_energy(self):
-        fig, ax1 = plt.subplots()
-        fig.suptitle("Tiempo vs Energia Total")
-
-        ax1.plot(self.time, self.kinetic_energy, color="r", alpha=0.5)
-        ax1.set_xlabel("Tiempo")
-        ax1.set_ylabel("Energia Cinetica", color="r")
-        ax1.tick_params(axis="y", labelcolor="r")
-
-        ax2 = ax1.twinx()
-        ax2.plot(self.time, self.potential_energy, color="b")
-        ax2.set_ylabel("Energia Potencial", color="b")
-        ax2.tick_params(axis="y", labelcolor="b")
-
-        ax3 = ax1.twinx()
-        # Move the third y-axis to the right by 60 points
-        ax3.spines["right"].set_position(("outward", 60))
-        ax3.plot(self.time, self.total_energy, color="k", alpha=0.5)
-        ax3.set_ylabel("Energia Total", color="k")
-        ax3.tick_params(axis="y", labelcolor="k")
-
-        fig.tight_layout()
-        return fig, (ax1, ax2, ax3)
-
-    def plot_energy(self, route=None):
-        if route is None:
-            route = self.save_route_images
-        fig, _ = self._create_plot_energy()
-        fig.savefig(
-            os.path.join(
-                route, f"{self.name}_{self.ODESolver}_{self.method}_energy.png"
-            )
-        )
-        plt.close(fig)
-
-    def cal_linear_momentum(self):
-        linear_momentum_x = np.zeros(len(self.time))
-        linear_momentum_y = np.zeros(len(self.time))
-
-        for i in range(len(self.time)):
-            for j in range(3):
-                mi = self.M[j]
-                vxi, vyi = self.VX[j, i], self.VY[j, i]
-                linear_momentum_x[i] += mi * vxi
-                linear_momentum_y[i] += mi * vyi
-
-        return linear_momentum_x, linear_momentum_y
-
-    def _create_plot_linear_momentum(self):
-        linear_momentum_x, linear_momentum_y = self.cal_linear_momentum()
-        fig, ax = plt.subplots(2, 1)
-        fig.suptitle("Tiempo vs Momento Lineal")
-        ax[0].plot(self.time, linear_momentum_x, label="Linear Momentum X", color="b")
-        ax[1].plot(self.time, linear_momentum_y, label="Linear Momentum Y", color="r")
-        ax[0].set_xlabel("Tiempo")
-        ax[1].set_xlabel("Tiempo")
-        ax[0].set_ylabel("Momento Lineal")
-        ax[1].set_ylabel("Momento Lineal")
-        ax[0].legend()
-        ax[1].legend()
-        plt.tight_layout()
-        return fig, ax
-
-    def _create_plot_linear_momentumv2(self):
-        linear_momentum_x, linear_momentum_y = self.cal_linear_momentum()
-        fig, ax = plt.subplots()
-        ax.plot(self.time, linear_momentum_x, label="Momento Lineal X")
-        ax.plot(self.time, linear_momentum_y, label="Momento Lineal Y")
-        ax.set_yscale("log")
-        ax.set_xlabel("Tiempo")
-        ax.set_ylabel("Momento Lineal")
-        ax.legend()
-        return fig, ax
-
-    def plot_momentum_lineal(self, route=None):
-        if route is None:
-            route = self.save_route_images
-        fig, _ = self._create_plot_linear_momentum()
-        fig.savefig(
-            os.path.join(
-                route, f"{self.name}_{self.ODESolver}_{self.method}_linear_momentum.png"
-            )
-        )
-        plt.close(fig)
-
     def plot(self):
         self.save_orbit_figure()
-        self.plot_total_energy()
-        self.plot_angular_momentum()
-        self.plot_momentum_lineal()
-        self.plot_energy()
-        self.save_error()
+        self.save_energy_figure()
+        self.save_total_energy_figure()
+        self.save_angular_momentum_figure()
+        self.save_linear_momentum_figure()
+        # self.save_error()
 
 
 if "__main__" == __name__:
@@ -497,13 +499,4 @@ if "__main__" == __name__:
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
     t, y = bdrk.run_simulation()
-    # bdrk.save_simulation()
-    bdrk.plot_energy()
-    # bdrk.load_simulation()
-    # print(bdrk.time)
-    # print(bdrk.y)
-    bdrk.save_orbit_figure()
-    bdrk.plot_total_energy()
-    # bdsym = BodySystem(ODESolver="sym", method="verlet")
-    # t, y = bdsym.run_simulation()
-    # bdsym.plot_orbit()
+    bdrk.plot()
