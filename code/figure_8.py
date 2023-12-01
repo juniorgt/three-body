@@ -1,4 +1,4 @@
-from BodySytem import BodySystem
+from bodySytem import BodySystem
 from ODESolvers.methods import rk_methods, sym_methods
 
 

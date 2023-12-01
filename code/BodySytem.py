@@ -44,7 +44,9 @@ class BodySystem:
         init_setup=None,
         ODESolver: str | None = None,
         method: str | None = None,
+        is_save_simulation_data: bool = True,
     ):
+        self.is_save_simulation_data = is_save_simulation_data
         self._set_default_setup(init_setup)
         self._initialize_parameters(init_setup, ODESolver, method)
         self._create_save_directories()
@@ -160,9 +162,8 @@ class BodySystem:
         self.running_time = end_time - init_time
         self.save_setup_to_toml()
         self._save_running_time()
-        self.save_simulation()
-        self.calculate_total_energy()
-        self.calculate_linear_momentum()
+        if self.is_save_simulation_data:
+            self.save_simulation()
         return self.time, self.y
 
     def _save_running_time(self):
