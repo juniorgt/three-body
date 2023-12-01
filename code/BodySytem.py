@@ -84,13 +84,13 @@ class BodySystem:
         os.makedirs(self.save_route_images, exist_ok=True)
         os.makedirs(self.save_route_data, exist_ok=True)
 
-        file_name = f"{self.name}_{self.ODESolver}_{self.method}.text"
+        file_name = f"{self.name}_{self.ODESolver}_{self.method}"
         self.path_data = os.path.join(self.save_route_data, file_name)
 
-    def save_setup_to_toml(self):
         file_name = f"{self.name}_{self.ODESolver}_{self.method}.toml"
         self.file_path_toml = os.path.join(self.save_route_data, file_name)
 
+    def save_setup_to_toml(self):
         setup_data = {
             "init_setup": {
                 "name": self.name,
@@ -181,21 +181,30 @@ class BodySystem:
         except Exception as e:
             print(f"Error saving the TOML file: {e}")
 
-    def save_simulation(self) -> None:
+    def save_simulation(self, file_format: str = "npy") -> None:
         simulation_data = np.hstack((self.time[:, np.newaxis], self.y))
         try:
-            np.savetxt(self.path_data, simulation_data)
+            if file_format == "npy":
+                with open(f"{self.path_data}.{file_format}", "wb") as file:
+                    np.save(file, simulation_data)
+            elif file_format == "txt":
+                np.savetxt(f"{self.path_data}.{file_format}", simulation_data)
+            else:
+                raise ValueError("Invalid file format")
         except OSError:
             print(f"Error saving data to {self.path_data}")
 
-    def load_simulation(self) -> None:
-        if not os.path.exists(self.path_data):
-            raise FileNotFoundError("The specified file does not exist!")
-
+    def load_simulation(self, file_format: str = "npy") -> None:
         try:
-            self.data = np.loadtxt(self.path_data)
-            self.time = self.data[:, 0]
-            self.y = self.data[:, 1:]
+            if file_format == "npy":
+                with open(f"{self.path_data}.{file_format}", "rb") as file:
+                    data = np.load(file)
+                    self.time = data[:, 0]
+                    self.y = data[:, 1:]
+            elif file_format == "txt":
+                data = np.loadtxt(self.path_data)
+                self.time = data[:, 0]
+                self.y = data[:, 1:]
         except Exception as e:
             print(f"Error loading file: {e}")
 
@@ -500,5 +509,6 @@ if "__main__" == __name__:
     }
 
     bdrk = BodySystem(init_setup=init_setup, ODESolver="rk", method="four")
-    t, y = bdrk.run_simulation()
+    bdrk.load_simulation()
+    # t, y = bdrk.run_simulation()
     bdrk.plot()
