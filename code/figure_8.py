@@ -28,11 +28,6 @@ def simulation_figure_8(h):
 
 
 if "__main__" == __name__:
-    simulation_figure_8(1e-1)
-    simulation_figure_8(1e-2)
-    simulation_figure_8(1e-3)
-    simulation_figure_8(1e-4)
-    simulation_figure_8(1e-5)
-    simulation_figure_8(1e-6)
-    simulation_figure_8(1e-7)
-    simulation_figure_8(1e-8)
+    list_first_steps = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    for h in list_first_steps:
+        simulation_figure_8(h)
