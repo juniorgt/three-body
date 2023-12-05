@@ -4,7 +4,7 @@ from ODESolvers.methods import rk_methods, sym_methods
 
 def simulation_figure_8(h):
     init_setup = {
-        "name": f"Figure-8_{str(h)}",
+        "name": "Figure-8",
         "ODESolver": "rk",
         "method": "original_rk",
         "G": 1,
