@@ -1,5 +1,5 @@
 from utils.orbit_loader import get_orbit
-from utils.simulations import run_simulations
+from utils.simulations import run_all_simulations, run_simulation
 
 
 def run_simulations_for_orbits(orbit_names: list, first_steps: list) -> None:
@@ -7,7 +7,7 @@ def run_simulations_for_orbits(orbit_names: list, first_steps: list) -> None:
         orbit = get_orbit(orbit_name)
         for h in first_steps:
             orbit.update({"h": h})
-            run_simulations(orbit)
+            run_all_simulations(orbit)
 
 
 def main():
@@ -36,4 +36,5 @@ def main():
 
 
 if "__main__" == __name__:
-    main()
+    # main()
+    run_simulation("3b-Yin-yang-II", "rk", "dormand_prince", 1e-4)
