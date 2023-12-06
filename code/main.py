@@ -13,15 +13,26 @@ def run_simulations_for_orbits(orbit_names: list, first_steps: list) -> None:
 def main():
     orbit_names = [
         "Figure-8",
-        "Butterfly_I",
-        "Butterfly_II",
+        "Butterfly-I",
+        "Butterfly-II",
         "Bumblebee",
+        "Moth-I",
+        "Moth-II",
+        "Butterfly-III",
+        "Goggles",
+        # "Butterfly-IV",
+        "Dragonfly",
+        "Yarn",
+        "2a-Yin-yang-I",
+        "2b-Yin-yang-I",
+        # "3a-Yin-yang-II",
+        # "3b-Yin-yang-II",
     ]
 
     first_steps = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 
-    # run_simulations_for_orbits(orbit_names, first_steps)
-    run_simulations_for_orbits(["Butterfly_II"], [1e-1, 1e-2])
+    run_simulations_for_orbits(orbit_names, first_steps)
+    # run_simulations_for_orbits(["3b-Yin-yang-II"], [1e-5])
 
 
 if "__main__" == __name__:
