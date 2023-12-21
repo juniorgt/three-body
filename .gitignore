@@ -79,8 +79,6 @@ cython_debug/
 # ruff
 .ruff_cache/
 
-
-images/
-data/
-images/
+images_dev/
+data_dev/
 notebooks/
